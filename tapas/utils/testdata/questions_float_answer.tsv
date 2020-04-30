@@ -1,0 +1,8 @@
+id	annotator	position	question	table_file	answer_coordinates	answer_text	aggregation	float_answer
+nt-14053	1	0	who were the captains?	table_csv/203_386.csv	['(0, 3)', '(1, 3)']	[u'Heinrich Brodda', u'Oskar Staudinger']	
+nt-14053	1	1	which ones lost their u-boat on may 5?	table_csv/203_386.csv	['(1, 3)']	[u'Oskar Staudinger']	none  
+nt-14053	1	2	of those, which one is not oskar staudinger?	table_csv/203_386.csv	['(2, 3)']	[u'Herbert Neckel']	NONE  
+nt-4436	0	0	which language has more males then females?	table_csv/203_88.csv	['(2, 0)']	[u'Russian']	SUM	150.
+nt-4436	0	1	which of those have less than 500 males?	table_csv/203_88.csv	['(5, 0)']	[u'Romanian']	COUNT	7
+nt-4436	0	2	the ones have less than 20 females?	table_csv/203_88.csv	['(5, 0)', '(7, 0)']	[u'Romanian', u'Estonian']	AVERAGE	7.5
+
