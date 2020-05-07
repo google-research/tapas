@@ -3,7 +3,15 @@
 Code and checkpoints for training the transformer-based Table QA models introduced
 in the paper [TAPAS: Weakly Supervised Table Parsing via Pre-training](#how-to-cite-tapas).
 
+## News
+
+2020/05/07
+ - Added a [colab](http://tiny.cc/tapas-colab) to try predictions on SQA
+
 ## Installation
+
+The easiest way to try out TAPAS with free GPU/TPU is in our
+[Colab](http://tiny.cc/tapas-colab), which shows how to do predictions on [SQA](http://aka.ms/sqa).
 
 The repository uses protocol buffers, and requires the `protoc` compiler to run.
 You can download the latest binary for your OS [here](https://github.com/protocolbuffers/protobuf/releases).
@@ -31,13 +39,13 @@ tox
 
 The pre-trained Tapas checkpoints can be downloaded here:
 
-* [base](https://storage.googleapis.com/tapas_models/2020_04_21/tapas_base.zip)
-* [large](https://storage.googleapis.com/tapas_models/2020_04_21/tapas_large.zip)
-* [sqa base](https://storage.googleapis.com/tapas_models/2020_04_21/tapas_sqa_base.zip)
-* [sqa large](https://storage.googleapis.com/tapas_models/2020_04_21/tapas_sqa_large.zip)
+* [MASKLM base](https://storage.googleapis.com/tapas_models/2020_04_21/tapas_base.zip)
+* [MASKLM large](https://storage.googleapis.com/tapas_models/2020_04_21/tapas_large.zip)
+* [SQA base](https://storage.googleapis.com/tapas_models/2020_04_21/tapas_sqa_base.zip)
+* [SQA large](https://storage.googleapis.com/tapas_models/2020_04_21/tapas_sqa_large.zip)
 
 The first two models are pre-trained on the Mask-LM task and the last two
-on the Mask-LM task first and the SQA second.
+on the Mask-LM task first and SQA second.
 
 You also need to download the task data for the fine-tuning tasks:
 
@@ -101,6 +109,12 @@ of the model can be found in `tapas_pretraining_experiment.py` and
 
 ## Evaluation
 
+Here we explain some details about different tasks and give some rough numbers.
+These numbers are ```denotation accuracy``` as computed by our tool and not
+the official metrics of the respective tasks. The numbers are here to
+to verify whether one's own runs are in the right ballpark. These numbers are
+not medians but individual runs.
+
 ### SQA
 
 By default, SQA will evaluate using the reference answers of the previous
@@ -109,16 +123,36 @@ using the more realistic setup
 where the previous answer are model predictions. `run_task_main.py` will output
 additional prediction files for this setup as well if run on GPU.
 
+Model | Dev Denotation | Dev Seq Denotation
+----- | -------------- | ------------------
+Large |        0.68298 | 0.65038
+Base  |        0.63854 | 0.57837
+
+
 ### WTQ
 
 For the official evaluation results one should convert the TAPAS predictions to
 the WTQ format and run the official evaluation script. This can be done using
 `convert_predictions.py`.
 
+Model     |  Dev Denotation
+--------- | ---------------
+SQA Large | 0.49288
+Large     | 0.41637
+SQA Base  | 0.41210
+Base      | 0.26085
+
+
 ### WikiSQL
 
 As discussed in [the paper](#how-to-cite-tapas) our code will compute evaluation
 metrics that deviate from the official evaluation script (Table 3 and 10).
+
+Model     |  Dev Denotation
+--------- | ---------------
+LARGE     | 0.85239
+BASE      | 0.81166
+
 
 ## Hardware Requirements
 

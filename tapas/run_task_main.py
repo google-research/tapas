@@ -55,6 +55,7 @@ flags.DEFINE_string('task', None, 'Task to run for.')
 flags.DEFINE_string('bert_vocab_file', None, 'Bert vocab file.')
 flags.DEFINE_string('bert_config_file', None, 'Bert config file.')
 flags.DEFINE_string('init_checkpoint', None, 'Init checkpoint.')
+flags.DEFINE_string('verbosity', None, 'Logging verbosity.')
 
 flags.DEFINE_bool('use_tpu', False, 'Whether to use TPU or GPU/CPU.')
 
@@ -103,6 +104,9 @@ flags.DEFINE_integer('max_seq_length', 512, 'Max sequence length of the input.')
 
 flags.DEFINE_string('mode', '', 'See Mode below.')
 
+flags.DEFINE_bool('loop_predict', True,
+                  'Loop predictions as new checkpoints appear while training')
+
 flags.DEFINE_string(
     'compression_type',
     'GZIP',
@@ -119,6 +123,7 @@ class Mode(enum.Enum):
   TRAIN = 2
   PREDICT_AND_EVALUATE = 3
   EVALUATE = 4
+  PREDICT = 5
 
 
 class TestSet(enum.Enum):
@@ -309,6 +314,7 @@ def _train_and_predict(
     mode,
     output_dir,
     model_dir,
+    loop_predict,
 ):
   """Trains, produces test predictions and eval metric."""
   file_utils.make_directories(model_dir)
@@ -433,7 +439,7 @@ def _train_and_predict(
         max_steps=tapas_config.num_train_steps,
     )
 
-  elif mode == Mode.PREDICT_AND_EVALUATE:
+  elif mode == Mode.PREDICT_AND_EVALUATE or mode == Mode.PREDICT:
 
     # Starts a continous eval that starts with the latest checkpoint and runs
     # until a checkpoint with 'num_train_steps' is reached.
@@ -441,7 +447,10 @@ def _train_and_predict(
     while True:
       checkpoint = estimator.latest_checkpoint()
 
-      if checkpoint == prev_checkpoint:
+      if not loop_predict and not checkpoint:
+        raise ValueError(f'No checkpoint found at {model_dir}.')
+
+      if loop_predict and checkpoint == prev_checkpoint:
         _print('Sleeping 5 mins before predicting')
         time.sleep(5 * 60)
         continue
@@ -457,12 +466,13 @@ def _train_and_predict(
           use_tpu=tapas_config.use_tpu,
           global_step=current_step,
       )
-      _eval(
-          task=task,
-          output_dir=output_dir,
-          model_dir=model_dir,
-          global_step=current_step)
-      if current_step >= tapas_config.num_train_steps:
+      if mode == Mode.PREDICT_AND_EVALUATE:
+        _eval(
+            task=task,
+            output_dir=output_dir,
+            model_dir=model_dir,
+            global_step=current_step)
+      if not loop_predict or current_step >= tapas_config.num_train_steps:
         _print(f'Evaluation finished after training step {current_step}.')
         break
 
@@ -680,13 +690,14 @@ def _check_options(output_dir, task, mode):
   if mode == Mode.CREATE_DATA:
     return
 
-  interactions = _get_test_interactions_file(
-      task,
-      output_dir,
-      test_set=TestSet.DEV,
-  )
-  if not tf.io.gfile.exists(interactions):
-    raise ValueError(f'No interactions found: {interactions}')
+  if mode == Mode.PREDICT_AND_EVALUATE or mode == Mode.EVALUATE:
+    interactions = _get_test_interactions_file(
+        task,
+        output_dir,
+        test_set=TestSet.DEV,
+    )
+    if not tf.io.gfile.exists(interactions):
+      raise ValueError(f'No interactions found: {interactions}')
 
   tf_examples = _get_test_examples_file(
       task,
@@ -705,6 +716,9 @@ def main(argv):
   if len(argv) > 1:
     raise app.UsageError('Too many command-line arguments.')
 
+  if FLAGS.verbosity:
+    tf.get_logger().setLevel(FLAGS.verbosity)
+
   task = tasks.Task[FLAGS.task]
   output_dir = os.path.join(FLAGS.output_dir, task.name.lower())
   model_dir = FLAGS.model_dir or os.path.join(output_dir, 'model')
@@ -722,7 +736,7 @@ def main(argv):
         test_batch_size=FLAGS.test_batch_size,
         output_dir=output_dir)
 
-  elif mode == Mode.TRAIN or mode == Mode.PREDICT_AND_EVALUATE:
+  elif mode in (Mode.TRAIN, Mode.PREDICT_AND_EVALUATE, Mode.PREDICT):
     _print('Training or predicting ...')
     tpu_options = TpuOptions(
         use_tpu=FLAGS.use_tpu,
@@ -744,6 +758,7 @@ def main(argv):
         mode=mode,
         output_dir=output_dir,
         model_dir=model_dir,
+        loop_predict=FLAGS.loop_predict,
     )
 
   elif mode == Mode.EVALUATE:
