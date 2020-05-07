@@ -55,7 +55,7 @@ flags.DEFINE_string('task', None, 'Task to run for.')
 flags.DEFINE_string('bert_vocab_file', None, 'Bert vocab file.')
 flags.DEFINE_string('bert_config_file', None, 'Bert config file.')
 flags.DEFINE_string('init_checkpoint', None, 'Init checkpoint.')
-flags.DEFINE_string('verbosity', None, 'Logging verbosity.')
+flags.DEFINE_string('tapas_verbosity', None, 'Logging verbosity.')
 
 flags.DEFINE_bool('use_tpu', False, 'Whether to use TPU or GPU/CPU.')
 
@@ -716,8 +716,8 @@ def main(argv):
   if len(argv) > 1:
     raise app.UsageError('Too many command-line arguments.')
 
-  if FLAGS.verbosity:
-    tf.get_logger().setLevel(FLAGS.verbosity)
+  if FLAGS.tapas_verbosity:
+    tf.get_logger().setLevel(FLAGS.tapas_verbosity)
 
   task = tasks.Task[FLAGS.task]
   output_dir = os.path.join(FLAGS.output_dir, task.name.lower())
