@@ -172,24 +172,24 @@ def _write_synthetic_dataset(table_name):
   dataset = ([
       [
           'dev-0', '0', '0', '-', table_name, '["(2, 1)", "(2, 2)"]', '["-"]',
-          calc_metrics_utils._AggregationFunction.NONE, ''
+          calc_metrics_utils._Answer.NONE, ''
       ],
       [
           'dev-1', '0', '0', '-', table_name, '["(1, 2)", "(1, 3)", "(1,4)"]',
-          '["-"]', calc_metrics_utils._AggregationFunction.SUM, ''
+          '["-"]', calc_metrics_utils._Answer.SUM, ''
       ],
       [
           'dev-2', '0', '0', '-', table_name,
           '["(0, 0)","(0, 1)","(0, 2)","(0, 3)","(0, 4)","(0, 5)"]', '["-"]',
-          calc_metrics_utils._AggregationFunction.COUNT, ''
+          calc_metrics_utils._Answer.COUNT, ''
       ],
       [
           'dev-3', '0', '0', '-', table_name, '["(0, 4)","(1, 4)"]', '["-"]',
-          calc_metrics_utils._AggregationFunction.AVERAGE, ''
+          calc_metrics_utils._Answer.AVERAGE, ''
       ],
       [
           'dev-4', '0', '0', '-', table_name, '["(0, 4)","(1, 4)"]', '["-"]',
-          calc_metrics_utils._AggregationFunction.SUM, ''
+          calc_metrics_utils._Answer.SUM, ''
       ],
   ])
   return _write_dataset(dataset)
@@ -215,9 +215,9 @@ class CalcMetricsTest(parameterized.TestCase):
     predictions_path = _write_synthetic_predictions()
     calc_metrics_utils.read_predictions(predictions_path, examples)
     self.assertEqual(examples['dev-2-0_0'].gold_agg_function,
-                     calc_metrics_utils._AggregationFunction.COUNT)
+                     calc_metrics_utils._Answer.COUNT)
     self.assertEqual(examples['dev-2-0_0'].pred_agg_function,
-                     calc_metrics_utils._AggregationFunction.NONE)
+                     calc_metrics_utils._Answer.NONE)
 
   def test_calc_structure_metrics(self):
     data_path = _write_synthetic_dataset('table_1')
@@ -235,9 +235,9 @@ class CalcMetricsTest(parameterized.TestCase):
         os.path.join(test_tmpdir, 'structured_examples.tsv'), sep='\t')
     self.assertEqual(denotation_errors.iloc[0, 1], 'dev-0-0_0')
     self.assertEqual(denotation_errors.iloc[0, 2],
-                     calc_metrics_utils._AggregationFunction.NONE)
+                     calc_metrics_utils._Answer.NONE)
     self.assertEqual(denotation_errors.iloc[0, 3],
-                     calc_metrics_utils._AggregationFunction.NONE)
+                     calc_metrics_utils._Answer.NONE)
 
   def test_denotation_accuracy(self):
     test_tmpdir, output_tables_file, table_name = _write_tables_dict()
@@ -267,7 +267,7 @@ class CalcMetricsTest(parameterized.TestCase):
     test_tmpdir, output_tables_file, table_name = _write_tables_dict()
     data_path = _write_dataset([[
         'dev-0', '0', '0', '-', table_name, '[]', '[]',
-        calc_metrics_utils._AggregationFunction.SUM, 'NAN'
+        calc_metrics_utils._Answer.SUM, 'NAN'
     ]])
     examples = _read_data_examples(data_path)
     predictions_path = _write_predictions(
@@ -292,7 +292,7 @@ class CalcMetricsTest(parameterized.TestCase):
         table_name,
         '[]',
         '[]',
-        calc_metrics_utils._AggregationFunction.NONE,
+        calc_metrics_utils._Answer.NONE,
         '992.3900146484375',
     ]])
     examples = _read_data_examples(data_path)
@@ -318,8 +318,7 @@ class CalcMetricsTest(parameterized.TestCase):
                     table_id='tab_0',
                     table=table,
                     gold_cell_coo=set(),
-                    gold_agg_function=calc_metrics_utils._AggregationFunction
-                    .NONE,
+                    gold_agg_function=calc_metrics_utils._Answer.NONE,
                     float_answer=None,
                     has_gold_answer=False,
                 ),
@@ -330,8 +329,7 @@ class CalcMetricsTest(parameterized.TestCase):
                     table_id='tab_0',
                     table=table,
                     gold_cell_coo={(0, 0)},
-                    gold_agg_function=calc_metrics_utils._AggregationFunction
-                    .NONE,
+                    gold_agg_function=calc_metrics_utils._Answer.NONE,
                     float_answer=None,
                     has_gold_answer=True,
                     pred_cell_coo={(0, 0)},
@@ -353,7 +351,7 @@ class CalcMetricsTest(parameterized.TestCase):
                 table_id='tab_0',
                 table=pd.DataFrame(),
                 gold_cell_coo={},
-                gold_agg_function=calc_metrics_utils._AggregationFunction.NONE,
+                gold_agg_function=calc_metrics_utils._Answer.NONE,
                 float_answer=None,
                 has_gold_answer=True,
             )
@@ -362,7 +360,7 @@ class CalcMetricsTest(parameterized.TestCase):
     self.assertLen(examples, 1)
     self.assertEqual(
         next(iter(examples.values())).pred_agg_function,
-        calc_metrics_utils._AggregationFunction.NONE)
+        calc_metrics_utils._Answer.NONE)
 
 
 if __name__ == '__main__':

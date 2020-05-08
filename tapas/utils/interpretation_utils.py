@@ -86,8 +86,7 @@ def _find_count_candidates(rng, table,
 
   for rows in solutions:
     for column in range(num_columns):
-      candidates.append(
-          Candidate(_Answer.AggregationFunction.COUNT, column, rows))
+      candidates.append(Candidate(_Answer.COUNT, column, rows))
 
   return _clip_candidates(rng, candidates)
 
@@ -156,8 +155,7 @@ def _find_sum_candidates(rng, table,
     return (math.fabs(sum(values[i] for i in indices) - float_value) <
             _FLOAT_TOLERANCE)
 
-  return _find_numeric_cell_combinations(rng, table, _is_correct,
-                                         _Answer.AggregationFunction.SUM)
+  return _find_numeric_cell_combinations(rng, table, _is_correct, _Answer.SUM)
 
 
 def _find_average_candidates(rng, table,
@@ -169,7 +167,7 @@ def _find_average_candidates(rng, table,
             _FLOAT_TOLERANCE)
 
   return _find_numeric_cell_combinations(rng, table, _is_correct,
-                                         _Answer.AggregationFunction.AVERAGE)
+                                         _Answer.AVERAGE)
 
 
 def find_candidates(rng, table,
@@ -198,7 +196,7 @@ def find_candidates(rng, table,
     if len(question.answer.answer_coordinates) != 1:
       raise ValueError('Expected a single answer coordinate.')
     candidates.append(
-        Candidate(_Answer.AggregationFunction.NONE,
+        Candidate(_Answer.NONE,
                   question.answer.answer_coordinates[0].column_index,
                   (question.answer.answer_coordinates[0].row_index,)))
 

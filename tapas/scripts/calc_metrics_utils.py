@@ -29,7 +29,7 @@ from tapas.utils import text_utils
 import tensorflow.compat.v1 as tf
 
 
-_AggregationFunction = interaction_pb2.Answer.AggregationFunction
+_Answer = interaction_pb2.Answer
 
 
 @dataclasses.dataclass
@@ -44,7 +44,7 @@ class Example:
   float_answer: float
   has_gold_answer: bool
   pred_cell_coo: Set[Tuple[int, int]] = dataclasses.field(default_factory=set)
-  pred_agg_function: int = _AggregationFunction.NONE
+  pred_agg_function: int = _Answer.NONE
 
 
 def read_data_examples_from_interactions(
@@ -163,7 +163,7 @@ def calc_structure_metrics(
   joint_acc = frame['is_correct'].mean()
   logging.info('joint_acc=%f', joint_acc)
 
-  agg_labels = list(_AggregationFunction.keys())
+  agg_labels = list(_Answer.AggregationFunction.keys())
 
   gold_agg = frame['gold_agg']
   pred_agg = frame['pred_agg']
@@ -233,16 +233,16 @@ def execute(aggregation_type, cell_coos,
   values = _collect_cells_from_table(cell_coos, table)
   values_parsed = [_parse_value(value) for value in values]
   values_parsed = tuple(values_parsed)
-  if aggregation_type == _AggregationFunction.NONE:
+  if aggregation_type == _Answer.NONE:
     # In this case there is no aggregation
     return values_parsed, values
   else:  # Should perform aggregation.
-    if not values and (aggregation_type == _AggregationFunction.AVERAGE or
-                       aggregation_type == _AggregationFunction.SUM):
+    if not values and (aggregation_type == _Answer.AVERAGE or
+                       aggregation_type == _Answer.SUM):
       # Summing or averaging an empty set results in an empty set.
       # NB: SQL returns null for sum over an empty set.
       return tuple(), values
-    if aggregation_type == _AggregationFunction.COUNT:
+    if aggregation_type == _Answer.COUNT:
       denotation = len(values)
     else:
       # In this case all values must be numbers (to be summed or averaged).
@@ -250,9 +250,9 @@ def execute(aggregation_type, cell_coos,
         values_num = [text_utils.convert_to_float(value) for value in values]
       except ValueError:
         return values_parsed, values
-      if aggregation_type == _AggregationFunction.SUM:
+      if aggregation_type == _Answer.SUM:
         denotation = sum(values_num)
-      elif aggregation_type == _AggregationFunction.AVERAGE:
+      elif aggregation_type == _Answer.AVERAGE:
         denotation = sum(values_num) / len(values_num)
       else:
         raise ValueError('Unknwon aggregation type: %s' % aggregation_type)
@@ -289,7 +289,7 @@ def _get_debug_row(result, table):
   return [
       result.denotation,
       result.values,
-      _AggregationFunction.Name(result.agg_function),
+      _Answer.AggregationFunction.Name(result.agg_function),
       sorted(result.cell_coordinates) if result.cell_coordinates else None,
       _highlight_cells(result.cell_coordinates, table)
       if result.cell_coordinates else None,
