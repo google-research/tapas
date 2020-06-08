@@ -134,6 +134,5 @@ class TfExampleUtilsTest(absltest.TestCase):
           _get_float_feature(example, 'question_numeric_values'),
           _clean_nans([2.0] + [_NAN] * (_MAX_NUMERIC_VALUES - 1)))
 
-
 if __name__ == '__main__':
   absltest.main()

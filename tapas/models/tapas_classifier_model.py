@@ -950,6 +950,7 @@ def model_fn_builder(config):
         disabled_features=config.disabled_features,
         disable_position_embeddings=config.disable_position_embeddings)
 
+
     if config.use_answer_as_supervision:
       answer = tf.squeeze(features["answer"], axis=[1])
       numeric_values = features["numeric_values"]
@@ -1082,7 +1083,7 @@ def input_fn(
   parse_example_fn = table_dataset.parse_table_examples(
       max_seq_length=max_seq_length,
       max_predictions_per_seq=max_predictions_per_seq,
-      is_pretraining=False,
+      task_type=table_dataset.TableTask.CLASSIFICATION,
       add_aggregation_function_id=add_aggregation_function_id,
       add_classification_labels=add_classification_labels,
       add_answer=add_answer,

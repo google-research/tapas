@@ -41,11 +41,20 @@ def make_tf_example(value_dict):
 
 
 def create_random_example(
-    max_seq_length, max_predictions_per_seq, is_pretraining,
-    add_aggregation_function_id, add_classification_labels,
-    add_answer, include_id, vocab_size,
-    segment_vocab_size, num_columns, num_rows,
-    add_candidate_answers, max_num_candidates):
+    max_seq_length,
+    max_predictions_per_seq,
+    task_type,
+    add_aggregation_function_id,
+    add_classification_labels,
+    add_answer,
+    include_id,
+    vocab_size,
+    segment_vocab_size,
+    num_columns,
+    num_rows,
+    add_candidate_answers,
+    max_num_candidates,
+):
   """Returns a random table example."""
   values = dict(
       input_ids=np.random.randint(
@@ -65,7 +74,7 @@ def create_random_example(
       numeric_relations=np.random.randint(
           10, size=[max_seq_length], dtype=np.int32))
 
-  if is_pretraining:
+  if task_type == table_dataset.TableTask.PRETRAINING:
     values["masked_lm_positions"] = np.random.randint(
         2, size=[max_predictions_per_seq], dtype=np.int32)
     values["masked_lm_ids"] = np.random.randint(
@@ -74,7 +83,7 @@ def create_random_example(
         max_predictions_per_seq).astype("f")
     values["next_sentence_labels"] = np.random.randint(
         2, size=[1], dtype=np.int32)
-  else:
+  elif task_type == table_dataset.TableTask.CLASSIFICATION:
     values["label_ids"] = np.random.randint(
         2, size=[max_seq_length], dtype=np.int32)
     if add_aggregation_function_id:
@@ -95,6 +104,8 @@ def create_random_example(
           np.random.rand(max_seq_length) < 0.5, np.nan,
           np.random.uniform(-100, 100, size=[max_seq_length]))
       values["numeric_values"] = numeric_values.astype(np.float32)
+  else:
+    raise ValueError(f"Unsupported task type: {task_type}")
 
   if add_candidate_answers:
     values["cand_num"] = np.random.randint(
@@ -142,7 +153,7 @@ def create_random_dataset(num_examples, batch_size, repeat, generator_kwargs):
   parse_fn = table_dataset.parse_table_examples(
       max_seq_length=generator_kwargs["max_seq_length"],
       max_predictions_per_seq=generator_kwargs["max_predictions_per_seq"],
-      is_pretraining=generator_kwargs["is_pretraining"],
+      task_type=generator_kwargs["task_type"],
       add_aggregation_function_id=generator_kwargs[
           "add_aggregation_function_id"],
       add_classification_labels=generator_kwargs["add_classification_labels"],

@@ -14,19 +14,31 @@
 # limitations under the License.
 # Lint as: python3
 """Contains parse functions for table inputs."""
+import enum
+from typing import Optional
 
 from tapas.datasets import dataset
 from tapas.utils import text_utils
 import tensorflow.compat.v1 as tf
 
 
-def parse_table_examples(max_seq_length, max_predictions_per_seq,
-                         is_pretraining,
-                         add_aggregation_function_id,
-                         add_classification_labels, add_answer,
-                         include_id, add_candidate_answers,
-                         max_num_candidates,
-                         params):
+class TableTask(enum.Enum):
+  CLASSIFICATION = 0
+  PRETRAINING = 1
+
+
+def parse_table_examples(
+    max_seq_length,
+    max_predictions_per_seq,
+    task_type,
+    add_aggregation_function_id,
+    add_classification_labels,
+    add_answer,
+    include_id,
+    add_candidate_answers,
+    max_num_candidates,
+    params,
+):
   """Returns a parse_fn that parses tf.Example in table format."""
 
   feature_types = {
@@ -41,7 +53,9 @@ def parse_table_examples(max_seq_length, max_predictions_per_seq,
       "row_ids":
           tf.FixedLenFeature([max_seq_length], tf.int64),
       "prev_label_ids":
-          tf.FixedLenFeature([max_seq_length], tf.int64),
+          tf.FixedLenFeature([max_seq_length],
+                             tf.int64,
+                             default_value=[0] * max_seq_length),
       "column_ranks":
           tf.FixedLenFeature([max_seq_length], tf.int64),
       "inv_column_ranks":
@@ -52,7 +66,7 @@ def parse_table_examples(max_seq_length, max_predictions_per_seq,
                              default_value=[0] * max_seq_length),
   }
 
-  if is_pretraining:
+  if task_type == TableTask.PRETRAINING:
     feature_types.update({
         "masked_lm_positions":
             tf.FixedLenFeature([max_predictions_per_seq], tf.int64),
@@ -63,7 +77,7 @@ def parse_table_examples(max_seq_length, max_predictions_per_seq,
         "next_sentence_labels":
             tf.FixedLenFeature([1], tf.int64),
     })
-  else:
+  elif task_type == TableTask.CLASSIFICATION:
     # For classification we have a label for each token.
     feature_types.update({
         "label_ids": tf.FixedLenFeature([max_seq_length], tf.int64),
@@ -95,6 +109,8 @@ def parse_table_examples(max_seq_length, max_predictions_per_seq,
           "answer":
               tf.FixedLenFeature([1], tf.float32),
       })
+  else:
+    raise ValueError(f"Unsupported task type: {task_type}")
 
   if add_candidate_answers:
     feature_types.update({

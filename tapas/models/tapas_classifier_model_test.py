@@ -17,10 +17,12 @@
 from typing import Iterator, Tuple
 from absl.testing import parameterized
 import numpy as np
+from tapas.datasets import table_dataset
 from tapas.datasets import table_dataset_test_utils
 from tapas.models import tapas_classifier_model
 from tapas.models.bert import modeling
 import tensorflow.compat.v1 as tf
+
 
 
 def bool_tuple(length, true_indexes):
@@ -37,7 +39,7 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
     return dict(
         max_seq_length=10,
         max_predictions_per_seq=5,
-        is_pretraining=False,
+        task_type=table_dataset.TableTask.CLASSIFICATION,
         add_aggregation_function_id=add_aggregation_function_id,
         add_classification_labels=add_classification_labels,
         add_answer=add_answer,

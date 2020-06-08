@@ -135,7 +135,7 @@ def _get_pieces(tokens):
 
 
 def fingerprint(text):
-  return int(hashlib.sha256(text.encode()).hexdigest(), 16)
+  return int(hashlib.sha256(text.encode('utf-8')).hexdigest(), 16)
 
 
 def create_int_feature(values):
@@ -649,8 +649,11 @@ class ToPretrainingTensorflowExample(ToTensorflowExampleBase):
     return tf.train.Example(features=tf.train.Features(feature=features))
 
   def convert(
-      self, rng, interaction,
-      random_table):
+      self,
+      rng,
+      interaction,
+      random_table,
+  ):
     """Creates TF example from interaction."""
     question_tokens = self._get_question_tokens(interaction, rng)
 

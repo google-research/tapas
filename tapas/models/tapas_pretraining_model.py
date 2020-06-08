@@ -271,7 +271,7 @@ def input_fn(
   parse_example_fn = table_dataset.parse_table_examples(
       max_seq_length=max_seq_length,
       max_predictions_per_seq=max_predictions_per_seq,
-      is_pretraining=True,
+      task_type=table_dataset.TableTask.PRETRAINING,
       add_aggregation_function_id=False,
       add_classification_labels=False,
       add_answer=False,

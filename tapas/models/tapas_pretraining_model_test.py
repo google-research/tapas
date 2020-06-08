@@ -16,6 +16,7 @@
 
 from absl.testing import parameterized
 import numpy as np
+from tapas.datasets import table_dataset
 from tapas.datasets import table_dataset_test_utils
 from tapas.models import tapas_pretraining_model
 from tapas.models.bert import modeling
@@ -28,7 +29,7 @@ class TapasPretrainingModelTest(parameterized.TestCase, tf.test.TestCase):
     return dict(
         max_seq_length=10,
         max_predictions_per_seq=5,
-        is_pretraining=True,
+        task_type=table_dataset.TableTask.PRETRAINING,
         add_aggregation_function_id=False,
         add_classification_labels=False,
         add_answer=False,
