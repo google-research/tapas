@@ -5,7 +5,7 @@ in the paper [TAPAS: Weakly Supervised Table Parsing via Pre-training](#how-to-c
 
 ## News
 
-2020/05/11
+2020/06/08
  - Released the [pre-training data](https://github.com/google-research/tapas/blob/master/PRETRAIN_DATA.md).
 
 2020/05/07
