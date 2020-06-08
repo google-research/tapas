@@ -18,6 +18,9 @@ from tapas.models.bert import optimization
 import tensorflow.compat.v1 as tf
 
 
+tf.disable_v2_behavior()
+
+
 class OptimizationTest(tf.test.TestCase):
 
   def test_adam(self):

@@ -20,6 +20,9 @@ from tapas.models import segmented_tensor
 import tensorflow.compat.v1 as tf
 
 
+tf.disable_v2_behavior()
+
+
 class SegmentedTensorTest(tf.test.TestCase):
 
   def _prepare_tables(self):

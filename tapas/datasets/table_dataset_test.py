@@ -23,6 +23,9 @@ from tapas.datasets import table_dataset_test_utils
 import tensorflow.compat.v1 as tf
 
 
+tf.disable_v2_behavior()
+
+
 class TableDatasetTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.named_parameters(
@@ -51,7 +54,7 @@ class TableDatasetTest(parameterized.TestCase, tf.test.TestCase):
                                 task_type, add_aggregation_function_id,
                                 add_answer, include_id, add_candidate_answers,
                                 add_classification_labels):
-    logging.info(f"Setting random seed to 42")
+    logging.info("Setting random seed to 42")
     np.random.seed(42)
     max_num_candidates = 10
     values = table_dataset_test_utils.create_random_example(
@@ -84,7 +87,7 @@ class TableDatasetTest(parameterized.TestCase, tf.test.TestCase):
         params=params)
     features = parse_fn(example.SerializeToString())
 
-    with self.test_session() as sess:
+    with self.cached_session() as sess:
       features_vals = sess.run(features)
 
     for value in values:
