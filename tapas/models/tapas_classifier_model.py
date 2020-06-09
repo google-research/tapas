@@ -30,6 +30,7 @@ from tapas.models.bert import table_bert
 import tensorflow.compat.v1 as tf
 import tensorflow_probability as tfp
 
+from tensorflow.contrib import metrics as contrib_metrics
 
 _EPSILON_ZERO_DIVISION = 1e-10
 _CLOSE_ENOUGH_TO_LOG_ZERO = -10000.0
@@ -868,6 +869,7 @@ def _calculate_eval_metrics_fn(loss, label_ids, logits, input_mask,
   recall = tf.metrics.recall(
       labels=label_ids, predictions=predictions, weights=input_mask_float)
   auc = tf.metrics.auc(labels=label_ids, predictions=probs)
+  f1 = contrib_metrics.f1_score(labels=label_ids, predictions=probs)
   mean_label = tf.metrics.mean(
       values=tf.cast(label_ids, tf.float32), weights=input_mask_float)
 
@@ -878,6 +880,7 @@ def _calculate_eval_metrics_fn(loss, label_ids, logits, input_mask,
       "eval_precision": precision,
       "eval_recall": recall,
       "eval_auc": auc,
+      "eval_f1": f1,
       "eval_mean_label": mean_label,
   }
 

@@ -179,8 +179,8 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
     eval_metrics = estimator.evaluate(_input_fn, steps=params["num_eval_steps"])
 
     for metric_name in ("eval_sequence_accuracy", "eval_recall",
-                        "eval_mean_label", "eval_precision", "eval_auc",
-                        "eval_accuracy", "eval_loss", "loss"):
+                        "eval_mean_label", "eval_precision", "eval_f1",
+                        "eval_auc", "eval_accuracy", "eval_loss", "loss"):
       self.assertIn(metric_name, eval_metrics)
 
   @parameterized.named_parameters(("no_answer", False, False),
