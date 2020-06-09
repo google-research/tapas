@@ -68,7 +68,7 @@ Note that you can skip pre-training and just use one of the pre-trained checkpoi
 
 Information about the pre-taining data can be found [here](https://github.com/google-research/tapas/blob/master/PRETRAIN_DATA.md).
 
-The TF examples for pre-traininig can be created using [Google Dataflow](https://cloud.google.com/dataflow):
+The TF examples for pre-training can be created using [Google Dataflow](https://cloud.google.com/dataflow):
 
 ```bash
 python3 setup.py sdist
@@ -144,7 +144,7 @@ python3 tapas/run_task_main.py \
   --use_tpu
 ```
 
-This will use the preset hyper-paremters set in `hparam_utils.py`.
+This will use the preset hyper-parameters set in `hparam_utils.py`.
 
 It's recommended to start a separate eval job to continuously produce predictions
 for the checkpoints created by the training job. Alternatively, you can run
