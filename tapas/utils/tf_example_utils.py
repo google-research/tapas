@@ -18,19 +18,17 @@
 import collections
 import hashlib
 import random
-from typing import Iterable, Tuple, Text, Optional, List, Mapping
-
+from typing import Iterable, List, Mapping, Optional, Text, Tuple
 from absl import logging
-
-
 import dataclasses
-from bert import tokenization
 from tapas.protos import interaction_pb2
 from tapas.utils import constants
 from tapas.utils import interpretation_utils
 from tapas.utils import number_annotation_utils
 from tapas.utils import text_utils
 import tensorflow.compat.v1 as tf
+
+from tensorflow_models.official.nlp.bert import tokenization
 
 _NS = 'main'
 _CLS = '[CLS]'

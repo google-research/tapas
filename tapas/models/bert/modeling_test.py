@@ -24,6 +24,9 @@ from tapas.models.bert import modeling
 import tensorflow.compat.v1 as tf
 
 
+tf.disable_v2_behavior()
+
+
 class BertModelTest(tf.test.TestCase):
 
   class BertModelTester(object):
@@ -134,7 +137,7 @@ class BertModelTest(tf.test.TestCase):
     self.assertEqual(obj["hidden_size"], 37)
 
   def run_tester(self, tester):
-    with self.test_session() as sess:
+    with self.cached_session() as sess:
       ops = tester.create_model()
       init_op = tf.group(tf.global_variables_initializer(),
                          tf.local_variables_initializer())

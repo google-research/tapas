@@ -23,6 +23,9 @@ import tensorflow.compat.v1 as tf
 
 
 
+tf.disable_v2_behavior()
+
+
 def write_tf_example(filename, data_format, features):
   example = tf.train.Example(features=tf.train.Features(feature=features))
   if data_format == "tfrecord":
@@ -47,7 +50,7 @@ class DatasetTest(parameterized.TestCase, tf.test.TestCase):
         self._file2.replace("00010-of-00020", "000?0-of-00020")
     ]
 
-    # Creates empty files to avoid errors in tearDown when self.test_session()
+    # Creates empty files to avoid errors in tearDown when self.cached_session()
     # is executed.
     open(self._file1, "a").close()
     open(self._file2, "a").close()
@@ -109,7 +112,7 @@ class DatasetTest(parameterized.TestCase, tf.test.TestCase):
     )
     feature_tuple = tf.data.make_one_shot_iterator(ds).get_next()
 
-    with self.test_session() as sess:
+    with self.cached_session() as sess:
       feature_tuple = sess.run(feature_tuple)
 
     if params["batch_size"] == 1:

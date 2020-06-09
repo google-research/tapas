@@ -5,6 +5,9 @@ in the paper [TAPAS: Weakly Supervised Table Parsing via Pre-training](#how-to-c
 
 ## News
 
+2020/06/10
+ - Bump TensorFlow to v2.2
+
 2020/06/08
  - Released the [pre-training data](https://github.com/google-research/tapas/blob/master/PRETRAIN_DATA.md).
 

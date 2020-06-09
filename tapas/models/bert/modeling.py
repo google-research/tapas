@@ -22,8 +22,7 @@ import re
 import numpy as np
 import six
 import tensorflow.compat.v1 as tf
-from tensorflow.contrib import framework as contrib_framework
-from tensorflow.contrib import layers as contrib_layers
+import tf_slim
 
 
 class BertConfig(object):
@@ -385,7 +384,7 @@ def dropout(input_tensor, dropout_prob):
 
 def layer_norm(input_tensor, name=None):
   """Run layer normalization on the last dimension of the tensor."""
-  return contrib_layers.layer_norm(
+  return tf_slim.layer_norm(
       inputs=input_tensor, begin_norm_axis=-1, begin_params_axis=-1, scope=name)
 
 
@@ -483,11 +482,9 @@ def embedding_postprocessor(input_tensor,
       raise ValueError("`token_type_ids` must be specified if"
                        "`use_token_type` is True.")
 
-    contrib_framework.nest.assert_same_structure(token_type_ids,
-                                                 token_type_vocab_size)
-    token_type_ids = contrib_framework.nest.flatten(token_type_ids)
-    token_type_vocab_size = contrib_framework.nest.flatten(
-        token_type_vocab_size)
+    tf.nest.assert_same_structure(token_type_ids, token_type_vocab_size)
+    token_type_ids = tf.nest.flatten(token_type_ids)
+    token_type_vocab_size = tf.nest.flatten(token_type_vocab_size)
 
     for i, (type_ids, type_vocab_size) in enumerate(
         zip(token_type_ids, token_type_vocab_size)):
