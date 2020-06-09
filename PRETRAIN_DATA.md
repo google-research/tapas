@@ -1,4 +1,4 @@
-# Pre-Traininig Data
+# Pre-Training Data
 
 The pre-training data consists of 6.2 million table-text examples extracted from
 the [English Wikipedia](https://en.wikipedia.org/wiki/Wikipedia) on December 2019.
