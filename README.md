@@ -41,6 +41,25 @@ pip install tox
 tox
 ```
 
+### Docker Image
+You can also directly use TAPAS via Docker.
+
+For first time use of nvidia-docker, it is important to run the following commands:
+
+```
+distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+sudo systemctl restart docker
+```
+
+To pull and run the docker image (contains all prerequisites) you can call the following command:
+
+```  
+sudo docker run -it --gpus all -v /absolute/path/to/my/data/directory:/home/data oeslle/tapas:1.0
+```
+
 ## Data
 
 See the section below for the pre-training data.
