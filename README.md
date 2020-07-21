@@ -41,23 +41,20 @@ pip install tox
 tox
 ```
 
-### Docker Image
-You can also directly use TAPAS via Docker.
+### Docker 
+You can also directly use TAPAS via Docker. NVIDIA driver and Docker 19.03+ must be installed beforehand. There is no need to install the CUDA toolkit on the host, but the driver needs to be installed. More details can be found on [nvidia-docker](https://github.com/NVIDIA/nvidia-docker).
 
-For first time use of nvidia-docker, it is important to run the following commands:
+#### Build Image
+To build a docker image you can call the following command in the same folder the `Dockerfile` is:
 
 ```
-distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
-curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
-sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
-sudo systemctl restart docker
+docker build --tag tapas:latest .
 ```
 
-To pull and run the docker image (contains all prerequisites) you can call the following command:
+Then, you can simply call the following command to run image:
 
 ```  
-sudo docker run -it --gpus all -v /absolute/path/to/my/data/directory:/home/data oeslle/tapas:1.0
+docker run -it --gpus all -v /absolute/path/to/my/data/directory:/home/data tapas:latest
 ```
 
 ## Data
