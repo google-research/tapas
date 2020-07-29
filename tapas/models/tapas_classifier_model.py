@@ -24,15 +24,19 @@ import dataclasses
 from tapas.datasets import dataset
 from tapas.datasets import table_dataset
 from tapas.models import segmented_tensor
+from tapas.models import tapas_classifier_model_utils as utils
 from tapas.models.bert import modeling
 from tapas.models.bert import optimization
 from tapas.models.bert import table_bert
+from tapas.utils import span_prediction_utils
 import tensorflow.compat.v1 as tf
 import tensorflow_probability as tfp
 
+SpanPredictionMode = span_prediction_utils.SpanPredictionMode
 
-_EPSILON_ZERO_DIVISION = 1e-10
-_CLOSE_ENOUGH_TO_LOG_ZERO = -10000.0
+_EPSILON_ZERO_DIVISION = utils.EPSILON_ZERO_DIVISION
+_CLOSE_ENOUGH_TO_LOG_ZERO = utils.CLOSE_ENOUGH_TO_LOG_ZERO
+_classification_initializer = utils.classification_initializer
 
 
 class AverageApproximationFunction(str, enum.Enum):
@@ -83,7 +87,9 @@ class TapasClassifierConfig:
   init_cell_selection_weights_to_zero: Whether to initialize cell selection.
     weights to 0 so that the initial probabilities are 50%.
   disable_position_embeddings: Disable positional embeddings in the input layer.
+  reset_position_index_per_cell: Restart position indexes at every cell.
   disable_per_token_loss: Disable any (strong or weak) supervision on cells.
+  span_prediction: Span selection mode to use.
   """
 
   bert_config: modeling.BertConfig
@@ -116,7 +122,9 @@ class TapasClassifierConfig:
   disabled_features: Optional[List[Text]] = None
   init_cell_selection_weights_to_zero: bool = False
   disable_position_embeddings: bool = False
+  reset_position_index_per_cell: bool = False
   disable_per_token_loss: bool = False
+  span_prediction: SpanPredictionMode = SpanPredictionMode.NONE
 
   def to_json_string(self):
     """Serializes this instance to a JSON string."""
@@ -170,11 +178,6 @@ def _get_probs(dist):
   return dist.probs_parameter()
 
 
-def _classification_initializer():
-  """Classification layer initializer."""
-  return tf.truncated_normal_initializer(stddev=0.02)
-
-
 def _calculate_aggregation_logits(output_layer_aggregation, output_weights_agg,
                                   output_bias_agg):
   """Calculates the aggregation logits.
@@ -207,7 +210,7 @@ def _calculate_aggregation_loss_known(logits_aggregation, aggregate_mask,
   Args:
     logits_aggregation: <float32>[batch_size, num_aggregation_labels]
     aggregate_mask: <float32>[batch_size]
-    aggregation_function_id: <int32>[batch_size, 1]
+    aggregation_function_id: <int32>[batch_size]
     config: Configuration for Tapas model.
 
   Returns:
@@ -336,7 +339,7 @@ def _calculate_regression_loss(answer, aggregate_mask, dist_per_cell,
   """Calculates the regression loss per example.
 
   Args:
-    answer: <float32>[batch_size, 1]
+    answer: <float32>[batch_size]
     aggregate_mask: <float32>[batch_size]
     dist_per_cell: Cell selection distribution for each cell.
     numeric_values: <float32>[batch_size, seq_length]
@@ -357,8 +360,8 @@ def _calculate_regression_loss(answer, aggregate_mask, dist_per_cell,
                                                numeric_values_scale,
                                                input_mask_float,
                                                logits_aggregation, config)
-  answer_masked = tf.where(tf.is_nan(answer), tf.zeros_like(answer), answer)
   # <float32>[batch_size]
+  answer_masked = tf.where(tf.is_nan(answer), tf.zeros_like(answer), answer)
 
   if config.use_normalized_answer_loss:
     normalizer = tf.stop_gradient(
@@ -406,7 +409,7 @@ def _calculate_aggregate_mask(answer, output_layer_aggregation, output_bias_agg,
   `cell_select_pref`.
 
   Args:
-    answer: <float32>[batch_size, 1]
+    answer: <float32>[batch_size]
     output_layer_aggregation: <float32>[batch_size, hidden_size]
     output_bias_agg: <float32>[num_aggregation_labels]
     output_weights_agg: <float32>[num_aggregation_labels, hidden_size_agg]
@@ -462,76 +465,12 @@ def compute_token_logits(output_layer, temperature,
   return logits
 
 
-def compute_column_logits(output_layer,
-                          cell_index,
-                          cell_mask,
-                          init_cell_selection_weights_to_zero,
-                          allow_empty_column_selection):
-  """Computes logits for each column.
-
-  Args:
-    output_layer: <float>[batch_size, seq_length, hidden_dim] Output of the
-      encoder layer.
-    cell_index: segmented_tensor.IndexMap [batch_size, seq_length] Index that
-      groups tokens into cells.
-    cell_mask: <float>[batch_size, max_num_rows * max_num_cols] Input mask per
-      cell, 1 for cells that exists in the example and 0 for padding.
-    init_cell_selection_weights_to_zero: Whether the initial weights should be
-      set to 0. This is also applied to column logits, as they are used to
-      select the cells. This ensures that all columns have the same prior
-      probability.
-    allow_empty_column_selection: Allow to select no column.
-
-  Returns:
-    <float>[batch_size, max_num_cols] Logits per column. Logits will be set to
-      a very low value (such that the probability is 0) for the special id 0
-      (which means "outside the table") or columns that do not apear in the
-      table.
-  """
-  hidden_size = output_layer.shape.as_list()[-1]
-  column_output_weights = tf.get_variable(
-      "column_output_weights", [hidden_size],
-      initializer=tf.zeros_initializer()
-      if init_cell_selection_weights_to_zero else _classification_initializer())
-  column_output_bias = tf.get_variable(
-      "column_output_bias", shape=(), initializer=tf.zeros_initializer())
-  token_logits = (
-      tf.einsum("bsj,j->bs", output_layer, column_output_weights) +
-      column_output_bias)
-
-  # Average the logits per cell and then per column.
-  # Note that by linearity it doesn't matter if we do the averaging on the
-  # embeddings or on the logits. For performance we do the projection first.
-  # [batch_size, max_num_cols * max_num_rows]
-  cell_logits, cell_logits_index = segmented_tensor.reduce_mean(
-      token_logits, cell_index)
-
-  column_index = cell_index.project_inner(cell_logits_index)
-  # [batch_size, max_num_cols]
-  column_logits, out_index = segmented_tensor.reduce_sum(
-      cell_logits * cell_mask, column_index)
-  cell_count, _ = segmented_tensor.reduce_sum(cell_mask, column_index)
-  column_logits /= cell_count + _EPSILON_ZERO_DIVISION
-
-  # Mask columns that do not appear in the example.
-  is_padding = tf.logical_and(cell_count < 0.5,
-                              tf.not_equal(out_index.indices, 0))
-  column_logits += _CLOSE_ENOUGH_TO_LOG_ZERO * tf.cast(is_padding, tf.float32)
-
-  if not allow_empty_column_selection:
-    column_logits += _CLOSE_ENOUGH_TO_LOG_ZERO * tf.cast(
-        tf.equal(out_index.indices, 0), tf.float32)
-
-  return column_logits
-
-
 def compute_classification_logits(num_classification_labels, output_layer):
   """Computes logits for each classification of the sequence.
 
   Args:
     num_classification_labels: int Number of class to predict
-    output_layer: <float>[batch_size, hidden_dim] Output of the
-      encoder layer.
+    output_layer: <float>[batch_size, hidden_dim] Output of the encoder layer.
 
   Returns:
     <float>[batch_size, num_classification_labels] Logits per class.
@@ -545,10 +484,9 @@ def compute_classification_logits(num_classification_labels, output_layer):
       "output_bias_cls",
       shape=[num_classification_labels],
       initializer=tf.zeros_initializer())
-  logits_classification = tf.matmul(
-      output_layer, output_weights_cls, transpose_b=True)
-  logits_classification = tf.nn.bias_add(logits_classification, output_bias_cls)
-  return logits_classification
+  logits_cls = tf.matmul(output_layer, output_weights_cls, transpose_b=True)
+  logits_cls = tf.nn.bias_add(logits_cls, output_bias_cls)
+  return logits_cls
 
 
 def _single_column_cell_selection_loss(token_logits, column_logits, label_ids,
@@ -632,12 +570,45 @@ def _single_column_cell_selection_loss(token_logits, column_logits, label_ids,
   return selection_loss_per_example, logits
 
 
-def _get_classification_outputs(config,
-                                is_training, output_layer,
-                                output_layer_aggregation, label_ids, input_mask,
-                                table_mask, aggregation_function_id, answer,
-                                numeric_values, numeric_values_scale, row_ids,
-                                column_ids, classification_class_index):
+@dataclasses.dataclass(frozen=True)
+class Outputs:
+  """Outputs of _get_classificiatin_outputs.
+
+    total_loss: the overall loss
+    logits: <float32>[batch_size, seq_length]
+    probs: <float32>[batch_size, seq_length]
+    logits_aggregation: <float32>[batch_size, num_aggregation_labels]
+    logits_cls: <float32>[batch_size, num_classification_labels]
+    start_logits <float32>[batch_size, seq_length]
+    end_logits <float32>[batch_size, seq_length]
+    span_indexes <int32>[batch_size, num_spans, 2]
+    span_logits <float32>[batch_size, num_spans]
+  """
+  total_loss: tf.Tensor
+  logits: tf.Tensor
+  probs: tf.Tensor
+  logits_aggregation: Optional[tf.Tensor]
+  logits_cls: Optional[tf.Tensor]
+  span_indexes: Optional[tf.Tensor]
+  span_logits: Optional[tf.Tensor]
+
+
+def _get_classification_outputs(
+    config,
+    is_training,
+    output_layer,
+    output_layer_aggregation,
+    label_ids,
+    input_mask,
+    table_mask,
+    aggregation_function_id,
+    answer,
+    numeric_values,
+    numeric_values_scale,
+    row_ids,
+    column_ids,
+    classification_class_index,
+):
   """Creates a classification model.
 
   Args:
@@ -648,21 +619,16 @@ def _get_classification_outputs(config,
     label_ids: <int32>[batch_size, seq_length]
     input_mask: <int32>[batch_size, seq_length]
     table_mask: <int32>[batch_size, seq_length]
-    aggregation_function_id: <int32>[batch_size, 1]
-    answer: <float32>[batch_size, 1]
+    aggregation_function_id: <int32>[batch_size]
+    answer: <float32>[batch_size]
     numeric_values: <float32>[batch_size, seq_length]
     numeric_values_scale: <float32>[batch_size, seq_length]
     row_ids: <int32>[batch_size, seq_length]
     column_ids: <int32>[batch_size, seq_length]
-    classification_class_index: <int32>[batch, 1]
-
+    classification_class_index: <int32>[batch]
 
   Returns:
-    total_loss: the overall loss
-    logits: <float32>[batch_size, seq_length]
-    logits_aggregation: <float32>[batch_size, num_aggregation_labels]
-    dist.probs: <float32>[batch_size, seq_length]
-    logits_classification <float32>[batch_size, num_classification_labels]
+    Outputs
   """
   if is_training:
     # I.e., 0.1 dropout
@@ -695,7 +661,7 @@ def _get_classification_outputs(config,
 
   # Compute logits per column. These are used to select a column.
   if config.select_one_column:
-    column_logits = compute_column_logits(
+    column_logits = utils.compute_column_logits(
         output_layer=output_layer,
         cell_index=cell_index,
         cell_mask=cell_mask,
@@ -798,13 +764,28 @@ def _get_classification_outputs(config,
           one_hot_labels * log_probs, axis=-1)
 
       cls_loss = tf.reduce_mean(per_example_classification_intermediate)
-      # with tf.control_dependencies([tf.print(cls_loss)]):
       total_loss += cls_loss
 
     ### Supervised cell selection
     ###############################
 
-    if config.disable_per_token_loss:
+    span_indexes = None
+    span_logits = None
+    if config.span_prediction != SpanPredictionMode.NONE:
+      (
+          span_indexes,
+          span_logits,
+          span_loss,
+      ) = span_prediction_utils.get_span_logits_by_mode(
+          config.span_prediction,
+          output_layer,
+          label_ids,
+          column_ids,
+          row_ids,
+          max_span_length=10,
+      )
+      total_loss += span_loss
+    elif config.disable_per_token_loss:
       pass
     elif is_supervised:
       total_loss += tf.reduce_mean(selection_loss_per_example)
@@ -832,15 +813,27 @@ def _get_classification_outputs(config,
 
       total_loss += tf.reduce_mean(per_example_additional_loss)
 
-    return (total_loss, logits, logits_aggregation,
-            _get_probs(dist_per_token) * input_mask_float, logits_cls)
+    return Outputs(
+        total_loss=total_loss,
+        logits=logits,
+        probs=_get_probs(dist_per_token) * input_mask_float,
+        logits_aggregation=logits_aggregation,
+        logits_cls=logits_cls,
+        span_indexes=span_indexes,
+        span_logits=span_logits,
+    )
 
 
-def _calculate_eval_metrics_fn(loss, label_ids, logits, input_mask,
-                               aggregation_function_id,
-                               logits_aggregation,
-                               classification_class_index,
-                               logits_cls):
+def _calculate_eval_metrics_fn(
+    loss,
+    label_ids,
+    logits,
+    input_mask,
+    aggregation_function_id,
+    logits_aggregation,
+    classification_class_index,
+    logits_cls,
+):
   """Calculates metrics for both cells and aggregation functions."""
   logits.shape.assert_has_rank(2)
   label_ids.shape.assert_has_rank(2)
@@ -851,8 +844,6 @@ def _calculate_eval_metrics_fn(loss, label_ids, logits, input_mask,
   input_mask_float = tf.cast(input_mask, tf.float32)
 
   loss = tf.metrics.mean(values=loss)
-  accuracy = tf.metrics.accuracy(
-      labels=label_ids, predictions=predictions, weights=input_mask_float)
 
   # <bool>[batch size, seq_length]
   token_correct = tf.logical_or(
@@ -861,23 +852,12 @@ def _calculate_eval_metrics_fn(loss, label_ids, logits, input_mask,
   # <bool>[batch size]
   per_sequence_accuracy = tf.reduce_all(token_correct, axis=1)
   sequence_accuracy = tf.metrics.mean(values=per_sequence_accuracy)
-
-  probs = tf.sigmoid(logits)
-  precision = tf.metrics.precision(
-      labels=label_ids, predictions=predictions, weights=input_mask_float)
-  recall = tf.metrics.recall(
-      labels=label_ids, predictions=predictions, weights=input_mask_float)
-  auc = tf.metrics.auc(labels=label_ids, predictions=probs)
   mean_label = tf.metrics.mean(
       values=tf.cast(label_ids, tf.float32), weights=input_mask_float)
 
   metrics = {
       "eval_loss": loss,
-      "eval_accuracy": accuracy,
       "eval_sequence_accuracy": sequence_accuracy,
-      "eval_precision": precision,
-      "eval_recall": recall,
-      "eval_auc": auc,
       "eval_mean_label": mean_label,
   }
 
@@ -910,6 +890,8 @@ def _calculate_eval_metrics_fn(loss, label_ids, logits, input_mask,
   return metrics
 
 
+
+
 def model_fn_builder(config):
   """Returns `model_fn` closure for TPUEstimator."""
 
@@ -939,14 +921,15 @@ def model_fn_builder(config):
         tf.squeeze(features["classification_class_index"], axis=[1])
         if do_model_classification else None)
 
+
     is_training = (mode == tf.estimator.ModeKeys.TRAIN)
     model = table_bert.create_model(
         features=features,
         mode=mode,
         bert_config=config.bert_config,
         disabled_features=config.disabled_features,
-        disable_position_embeddings=config.disable_position_embeddings)
-
+        disable_position_embeddings=config.disable_position_embeddings,
+        reset_position_index_per_cell=config.reset_position_index_per_cell,)
 
     if config.use_answer_as_supervision:
       answer = tf.squeeze(features["answer"], axis=[1])
@@ -957,39 +940,52 @@ def model_fn_builder(config):
       numeric_values = None
       numeric_values_scale = None
 
-    (total_loss, logits, logits_aggregation, probabilities,
-     logits_cls) = _get_classification_outputs(
-         config=config,
-         output_layer=model.get_sequence_output(),
-         output_layer_aggregation=model.get_pooled_output(),
-         label_ids=label_ids,
-         input_mask=input_mask,
-         table_mask=table_mask,
-         aggregation_function_id=aggregation_function_id,
-         answer=answer,
-         numeric_values=numeric_values,
-         numeric_values_scale=numeric_values_scale,
-         is_training=is_training,
-         row_ids=row_ids,
-         column_ids=column_ids,
-         classification_class_index=classification_class_index)
+    outputs = _get_classification_outputs(
+        config=config,
+        output_layer=model.get_sequence_output(),
+        output_layer_aggregation=model.get_pooled_output(),
+        label_ids=label_ids,
+        input_mask=input_mask,
+        table_mask=table_mask,
+        aggregation_function_id=aggregation_function_id,
+        answer=answer,
+        numeric_values=numeric_values,
+        numeric_values_scale=numeric_values_scale,
+        is_training=is_training,
+        row_ids=row_ids,
+        column_ids=column_ids,
+        classification_class_index=classification_class_index)
+    total_loss = outputs.total_loss
+
 
     tvars = tf.trainable_variables()
-    initialized_variable_names = {}
+    initialized_variable_names = set()
     scaffold_fn = None
-    init_checkpoint = config.init_checkpoint
-    if init_checkpoint:
-      (assignment_map, initialized_variable_names
-      ) = modeling.get_assignment_map_from_checkpoint(tvars, init_checkpoint)
-      if config.use_tpu:
+    init_from_checkpoints = []
 
+    def add_init_checkpoint(init_checkpoint, scope=None):
+      if not init_checkpoint:
+        return
+      (assignment_map,
+       initialized_variables) = modeling.get_assignment_map_from_checkpoint(
+           tvars, init_checkpoint, scope=scope)
+      initialized_variable_names.update(initialized_variables.keys())
+      init_from_checkpoints.append((init_checkpoint, assignment_map))
+
+    add_init_checkpoint(config.init_checkpoint)
+
+
+    if init_from_checkpoints:
+      if config.use_tpu:
         def tpu_scaffold():
-          tf.train.init_from_checkpoint(init_checkpoint, assignment_map)
+          for init_checkpoint, assignment_map in init_from_checkpoints:
+            tf.train.init_from_checkpoint(init_checkpoint, assignment_map)
           return tf.train.Scaffold()
 
         scaffold_fn = tpu_scaffold
       else:
-        tf.train.init_from_checkpoint(init_checkpoint, assignment_map)
+        for init_checkpoint, assignment_map in init_from_checkpoints:
+          tf.train.init_from_checkpoint(init_checkpoint, assignment_map)
 
     tf.logging.info("**** Trainable Variables ****")
     for var in tvars:
@@ -1017,10 +1013,18 @@ def model_fn_builder(config):
           train_op=train_op,
           scaffold_fn=scaffold_fn)
     elif mode == tf.estimator.ModeKeys.EVAL:
-      eval_metrics = (_calculate_eval_metrics_fn, [
-          total_loss, label_ids, logits, input_mask, aggregation_function_id,
-          logits_aggregation, classification_class_index, logits_cls
-      ])
+      eval_metrics = (
+          _calculate_eval_metrics_fn,
+          [
+              total_loss,
+              label_ids,
+              outputs.logits,
+              input_mask,
+              aggregation_function_id,
+              outputs.logits_aggregation,
+              classification_class_index,
+              outputs.logits_cls,
+          ])
       output_spec = tf.estimator.tpu.TPUEstimatorSpec(
           mode=mode,
           loss=total_loss,
@@ -1028,7 +1032,8 @@ def model_fn_builder(config):
           scaffold_fn=scaffold_fn)
     else:
       predictions = {
-          "probabilities": probabilities,
+          "probabilities": outputs.probs,
+          "input_ids": features["input_ids"],
           "column_ids": features["column_ids"],
           "row_ids": features["row_ids"],
           "segment_ids": features["segment_ids"],
@@ -1043,18 +1048,32 @@ def model_fn_builder(config):
             "gold_aggr":
                 features["aggregation_function_id"],
             "pred_aggr":
-                tf.argmax(logits_aggregation, axis=-1, output_type=tf.int32)
+                tf.argmax(
+                    outputs.logits_aggregation,
+                    axis=-1,
+                    output_type=tf.int32,
+                )
         })
       if do_model_classification:
         predictions.update({
-            "gold_cls": features["classification_class_index"],
-            "pred_cls": tf.argmax(logits_cls, axis=-1, output_type=tf.int32)
+            "gold_cls":
+                features["classification_class_index"],
+            "pred_cls":
+                tf.argmax(
+                    outputs.logits_cls,
+                    axis=-1,
+                    output_type=tf.int32,
+                )
         })
         if config.num_classification_labels == 2:
-          predictions.update(
-              {"logits_cls": logits_cls[:, 1] - logits_cls[:, 0]})
+          predictions.update({
+              "logits_cls": outputs.logits_cls[:, 1] - outputs.logits_cls[:, 0]
+          })
         else:
-          predictions.update({"logits_cls": logits_cls})
+          predictions.update({"logits_cls": outputs.logits_cls})
+      if outputs.span_indexes is not None and outputs.span_logits is not None:
+        predictions.update({"span_indexes": outputs.span_indexes})
+        predictions.update({"span_logits": outputs.span_logits})
       output_spec = tf.estimator.tpu.TPUEstimatorSpec(
           mode=mode, predictions=predictions, scaffold_fn=scaffold_fn)
     return output_spec

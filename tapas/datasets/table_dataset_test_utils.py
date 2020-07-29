@@ -73,7 +73,6 @@ def create_random_example(
           num_columns, size=[max_seq_length], dtype=np.int32),
       numeric_relations=np.random.randint(
           10, size=[max_seq_length], dtype=np.int32))
-
   if task_type == table_dataset.TableTask.PRETRAINING:
     values["masked_lm_positions"] = np.random.randint(
         2, size=[max_predictions_per_seq], dtype=np.int32)

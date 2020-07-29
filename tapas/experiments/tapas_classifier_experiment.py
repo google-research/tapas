@@ -111,6 +111,13 @@ flags.DEFINE_integer(
     "The number of classes to predict. If 0, then"
     "classification prediction is not modeled.")
 
+flags.DEFINE_enum(
+    "span_prediction",
+    "none",
+    ["none", "boundary", "span"],
+    "Add span prediction output.",
+)
+
 flags.DEFINE_float(
     "aggregation_loss_importance", 1.0, "Weight that determines the aggregation"
     "loss importance in comparison to that of the cell loss. Only used if"
@@ -188,16 +195,28 @@ flags.DEFINE_bool(
     "select_one_column", False,
     "Whether the model should be forced to select cells from only one column.")
 
+
+flags.DEFINE_bool(
+    "compute_weighted_denotation_accuracy", False,
+    "Whether to compute weighted denotation accuracy for QA experiments.")
+
 flags.DEFINE_list("disabled_features", [],
                   "Features that should be disabled (for ablation studies).")
+
 flags.DEFINE_bool("disable_position_embeddings", False,
                   "Whether to disable position embeddings.")
+
+flags.DEFINE_bool("reset_position_index_per_cell", False,
+                  "Whether to restart position indexes at every cell.")
 
 flags.DEFINE_bool("disable_per_token_loss", False,
                   "Disable any (strong or weak) supervision on cells.")
 
 flags.DEFINE_bool("allow_empty_column_selection", False,
                   "If false, disallow selecting no column.")
+
+flags.DEFINE_bool("mask_examples_without_labels", False,
+                  "If false, mask examples without answers.")
 
 
 def main(_):
@@ -237,7 +256,10 @@ def main(_):
       select_one_column=FLAGS.select_one_column,
       allow_empty_column_selection=FLAGS.allow_empty_column_selection,
       disable_position_embeddings=FLAGS.disable_position_embeddings,
-      disable_per_token_loss=FLAGS.disable_per_token_loss)
+      disable_per_token_loss=FLAGS.disable_per_token_loss,
+      reset_position_index_per_cell=FLAGS.reset_position_index_per_cell,
+      span_prediction=tapas_classifier_model.SpanPredictionMode(
+          FLAGS.span_prediction),)
 
   model_fn = tapas_classifier_model.model_fn_builder(tapas_config)
   estimator = experiment_utils.build_estimator(model_fn)
@@ -292,7 +314,8 @@ def main(_):
       result = estimator.evaluate(
           input_fn=eval_input_fn,
           steps=FLAGS.num_eval_steps,
-          name=FLAGS.eval_name)
+          name=FLAGS.eval_name,
+          checkpoint_path=checkpoint)
       tf.logging.info("Eval result:\n%s", result)
 
       current_step = int(os.path.basename(checkpoint).split("-")[1])
@@ -338,8 +361,15 @@ def main(_):
       ):
         """Exports model predictions and calculates denotation metric."""
         # Predict for each new checkpoint.
-        tf.logging.info("Running predictor for step %d.", current_step)
-        result = estimator.predict(input_fn=input_fn)
+        tf.logging.info(
+            "Running predictor for step %d (%s).",
+            current_step,
+            checkpoint,
+        )
+        result = estimator.predict(
+            input_fn=input_fn,
+            checkpoint_path=checkpoint,
+        )
         if FLAGS.prediction_output_dir:
           output_dir = FLAGS.prediction_output_dir
           tf.io.gfile.makedirs(output_dir)
@@ -379,16 +409,19 @@ def main(_):
             input_fn=predict_input_fn,
             input_file=FLAGS.input_file_predict,
             interactions_file=FLAGS.predict_interactions_file)
-      _predict_and_export_metrics(
-          mode="eval",
-          input_fn=eval_input_fn,
-          input_file=FLAGS.input_file_eval,
-          interactions_file=FLAGS.eval_interactions_file)
+      if FLAGS.input_file_eval is not None:
+        _predict_and_export_metrics(
+            mode="eval",
+            input_fn=eval_input_fn,
+            input_file=FLAGS.input_file_eval,
+            interactions_file=FLAGS.eval_interactions_file)
 
       num_train_steps = experiment_utils.num_train_steps()
       if num_train_steps is None or current_step >= num_train_steps:
-        tf.logging.info("Predictor finished after training step %d",
-                        current_step)
+        tf.logging.info(
+            "Predictor finished after training step %d",
+            current_step,
+        )
         break
       prev_checkpoint = checkpoint
 

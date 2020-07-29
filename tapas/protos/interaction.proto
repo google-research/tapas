@@ -21,6 +21,8 @@ message Interaction {
   optional string id = 1;
   optional Table table = 2;
   repeated Question questions = 3;
+
+  extensions 10000 to max;
 }
 
 message Question {
@@ -32,6 +34,7 @@ message Question {
   // Numeric value spans in 'text'.
   optional NumericValueSpans annotations = 4;
   optional Answer answer = 5;
+  repeated Answer alternative_answers = 6;
 
   extensions 10000 to max;
 }
@@ -88,6 +91,9 @@ message Table {
 
   // The title of the document the table appears in.
   optional string document_title = 4;
+
+  // Title or caption of the table.
+  optional string caption = 5;
 
   extensions 10000 to max;
 }

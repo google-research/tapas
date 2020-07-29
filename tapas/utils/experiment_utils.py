@@ -20,8 +20,10 @@ from tapas.models.bert import modeling
 import tensorflow.compat.v1 as tf
 
 
+flags.DEFINE_string("model_dir", None,
+                    "The directory where the model will be stored.")
+flags.DEFINE_string("session_master", None, "Tensorflow master address.")
 flags.DEFINE_string("master", None, "[Optional] TensorFlow master URL.")
-
 flags.DEFINE_integer("tf_random_seed", None, "Random seed for tensorflow")
 
 flags.DEFINE_integer("train_batch_size", 128, "Batch size for training set.")

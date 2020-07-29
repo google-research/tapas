@@ -65,7 +65,6 @@ def parse_table_examples(
                              tf.int64,
                              default_value=[0] * max_seq_length),
   }
-
   if task_type == TableTask.PRETRAINING:
     feature_types.update({
         "masked_lm_positions":

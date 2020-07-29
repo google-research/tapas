@@ -72,8 +72,12 @@ flags.DEFINE_bool(
 
 flags.DEFINE_list("disabled_features", [],
                   "Features that should be disabled (for ablation studies).")
+
 flags.DEFINE_bool("disable_position_embeddings", False,
                   "Whether to disable position embeddings.")
+
+flags.DEFINE_bool("reset_position_index_per_cell", False,
+                  "Whether to restart position indexes at every cell.")
 
 
 def main(_):
@@ -86,7 +90,8 @@ def main(_):
       num_warmup_steps=experiment_utils.num_warmup_steps(),
       use_tpu=FLAGS.use_tpu,
       disabled_features=FLAGS.disabled_features,
-      disable_position_embeddings=FLAGS.disable_position_embeddings)
+      disable_position_embeddings=FLAGS.disable_position_embeddings,
+      reset_position_index_per_cell=FLAGS.reset_position_index_per_cell,)
   estimator = experiment_utils.build_estimator(model_fn)
 
   if FLAGS.do_train:

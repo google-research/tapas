@@ -41,6 +41,7 @@ _MAX_NUM_ROWS = 32
 _WP_PER_CELL = 1.5
 _MAX_INDEX_LENGTH = int(_MAX_NUM_CANDIDATES * _MAX_NUM_ROWS * _WP_PER_CELL)
 _MAX_NUMERIC_VALUES = number_annotation_utils.MAX_QUESTION_NUMERIC_VALUES
+_MAX_INT = 2**32 - 1
 
 
 @dataclasses.dataclass(frozen=True)
@@ -118,6 +119,11 @@ class PretrainConversionConfig(ConversionConfig):
 @dataclasses.dataclass(frozen=True)
 class ClassifierConversionConfig(ConversionConfig):
   add_aggregation_candidates: bool
+  use_document_title: bool = False
+  # Re-computes answer coordinates from the answer text.
+  update_answer_coordinates: bool = False
+  # Drop last rows if table doesn't fit within max sequence length.
+  drop_rows_to_fit: bool = False
 
 
 @dataclasses.dataclass(frozen=True)
@@ -166,26 +172,113 @@ def _get_buckets(value, buckets, name):
   return '%s: < inf' % (name)
 
 
+def _get_all_answer_ids_from_coordinates(
+    column_ids,
+    row_ids,
+    answers_list,
+):
+  """Maps lists of answer coordinates to token indexes."""
+  answer_ids = [0] * len(column_ids)
+  found_answers = set()
+  all_answers = set()
+  for answers in answers_list:
+    for column_index, row_index in answers:
+      all_answers.add((column_index, row_index))
+      for index in _get_cell_token_indexes(column_ids, row_ids, column_index,
+                                           row_index):
+        found_answers.add((column_index, row_index))
+        answer_ids[index] = 1
+
+  missing_count = len(all_answers) - len(found_answers)
+  return answer_ids, missing_count
+
+
 def _get_all_answer_ids(
     column_ids,
     row_ids,
     questions,
 ):
   """Maps lists of questions with answer coordinates to token indexes."""
-  answer_ids = [0] * len(column_ids)
-  found_answers = set()
-  all_answers = set()
-  for question in questions:
-    for answer in question.answer.answer_coordinates:
-      all_answers.add((answer.column_index, answer.row_index))
-      for index in _get_cell_token_indexes(column_ids, row_ids,
-                                           answer.column_index,
-                                           answer.row_index):
-        found_answers.add((answer.column_index, answer.row_index))
-        answer_ids[index] = 1
 
-  missing_count = len(all_answers) - len(found_answers)
-  return answer_ids, missing_count
+  def _to_coordinates(
+      question,):
+    return [(coords.column_index, coords.row_index)
+            for coords in question.answer.answer_coordinates]
+
+  return _get_all_answer_ids_from_coordinates(
+      column_ids,
+      row_ids,
+      answers_list=(_to_coordinates(question) for question in questions),
+  )
+
+
+def _find_tokens(text, segment):
+  """Return start index of segment in text or None."""
+  logging.info('text: %s %s', text, segment)
+  for text_index in range(1 + len(text) - len(segment)):
+    for seg_index, seg_token in enumerate(segment):
+      if text[text_index + seg_index].piece != seg_token.piece:
+        break
+    else:
+      return text_index
+  return None
+
+
+def _find_answer_coordinates_from_answer_text(
+    tokenized_table,
+    answer_text,
+):
+  """Returns all occurrences of answer_text in the table."""
+  logging.info('answer text: %s', answer_text)
+  for row_index, row in enumerate(tokenized_table.rows):
+    if row_index == 0:
+      # We don't search for answers in the header.
+      continue
+    for col_index, cell in enumerate(row):
+      token_index = _find_tokens(cell, answer_text)
+      if token_index is not None:
+        yield TokenCoordinates(
+            row_index=row_index,
+            column_index=col_index,
+            token_index=token_index,
+        )
+
+
+def _find_answer_ids_from_answer_texts(
+    column_ids,
+    row_ids,
+    tokenized_table,
+    answer_texts,
+):
+  """Maps question with answer texts to the first matching token indexes."""
+  answer_ids = [0] * len(column_ids)
+  for answer_text in answer_texts:
+    for coordinates in _find_answer_coordinates_from_answer_text(
+        tokenized_table,
+        answer_text,
+    ):
+      # Maps answer coordinates to indexes this can fail if tokens / rows have
+      # been pruned.
+      indexes = list(
+          _get_cell_token_indexes(
+              column_ids,
+              row_ids,
+              column_id=coordinates.column_index,
+              row_id=coordinates.row_index - 1,
+          ))
+      indexes.sort()
+      coordinate_answer_ids = []
+      if indexes:
+        begin_index = coordinates.token_index + indexes[0]
+        end_index = begin_index + len(answer_text)
+        for index in indexes:
+          if index >= begin_index and index < end_index:
+            coordinate_answer_ids.append(index)
+      if len(coordinate_answer_ids) == len(answer_text):
+        for index in coordinate_answer_ids:
+          answer_ids[index] = 1
+        break
+  return answer_ids
 
 
 def _get_answer_ids(column_ids, row_ids,
@@ -591,6 +684,8 @@ class ToTensorflowExampleBase:
     if table:
       features['table_id'] = create_string_feature(
           [table.table_id.encode('utf8')])
+      features['table_id_hash'] = create_int_feature(
+          [fingerprint(table.table_id) % _MAX_INT])
     return features
 
 
@@ -853,15 +948,24 @@ class ToTrimmedTensorflowExample(ToTensorflowExampleBase):
       tokenized_table,
       num_columns,
       num_rows,
+      drop_rows_to_fit = False,
   ):
     """Finds optiomal number of table tokens to include and serializes."""
-    num_tokens = self._get_max_num_tokens(
-        question_tokens,
-        tokenized_table,
-        num_rows=num_rows,
-        num_columns=num_columns,
-    )
-
+    init_num_rows = num_rows
+    while True:
+      num_tokens = self._get_max_num_tokens(
+          question_tokens,
+          tokenized_table,
+          num_rows=num_rows,
+          num_columns=num_columns,
+      )
+      if num_tokens is not None:
+        # We could fit the table.
+        break
+      if not drop_rows_to_fit or num_rows == 0:
+        raise ValueError('Sequence too long')
+      # Try to drop a row to fit the table.
+      num_rows -= 1
     serialized_example = self._serialize(question_tokens, tokenized_table,
                                          num_columns, num_rows, num_tokens)
 
@@ -894,7 +998,7 @@ class ToTrimmedTensorflowExample(ToTensorflowExampleBase):
         break
     if num_tokens < max_num_tokens:
       if num_tokens == 0:
-        raise ValueError('Sequence too long')
+        return None
     return num_tokens
 
 
@@ -904,6 +1008,9 @@ class ToClassifierTensorflowExample(ToTrimmedTensorflowExample):
   def __init__(self, config):
     super(ToClassifierTensorflowExample, self).__init__(config)
     self._add_aggregation_candidates = config.add_aggregation_candidates
+    self._use_document_title = config.use_document_title
+    self._update_answer_coordinates = config.update_answer_coordinates
+    self._drop_rows_to_fit = config.drop_rows_to_fit
 
   def _add_question_numeric_values(self, question,
                                    features):
@@ -932,7 +1039,10 @@ class ToClassifierTensorflowExample(ToTrimmedTensorflowExample):
 
     num_rows = len(table.rows)
     if num_rows >= self._max_row_id:
-      raise ValueError('Too many rows')
+      if self._drop_rows_to_fit:
+        num_rows = self._max_row_id - 1
+      else:
+        raise ValueError('Too many rows')
 
     num_columns = len(table.columns)
     if num_columns >= self._max_column_id:
@@ -944,30 +1054,48 @@ class ToClassifierTensorflowExample(ToTrimmedTensorflowExample):
 
     question_tokens = self._tokenizer.tokenize(question.text)
 
+    text_tokens = list(question_tokens)
+    if self._use_document_title and table.document_title:
+      # TODO(thomasmueller) Consider adding a different segment id.
+      document_title_tokens = self._tokenizer.tokenize(table.document_title)
+      text_tokens.append(Token(_SEP, _SEP))
+      text_tokens.extend(document_title_tokens)
+
     tokenized_table = self._tokenize_table(table)
 
     serialized_example, features = self._to_trimmed_features(
         question=question,
         table=table,
-        question_tokens=question_tokens,
+        question_tokens=text_tokens,
         tokenized_table=tokenized_table,
         num_columns=num_columns,
-        num_rows=num_rows)
+        num_rows=num_rows,
+        drop_rows_to_fit=self._drop_rows_to_fit)
 
     column_ids = serialized_example.column_ids
     row_ids = serialized_example.row_ids
-    answer_ids = _get_answer_ids(column_ids, row_ids, question)
+
+    def get_answer_ids(question):
+      if self._update_answer_coordinates:
+        return _find_answer_ids_from_answer_texts(
+            column_ids,
+            row_ids,
+            tokenized_table,
+            answer_texts=[
+                self._tokenizer.tokenize(at)
+                for at in question.answer.answer_texts
+            ],
+        )
+      return _get_answer_ids(column_ids, row_ids, question)
+
+    answer_ids = get_answer_ids(question)
     self._pad_to_seq_length(answer_ids)
     features['label_ids'] = create_int_feature(answer_ids)
 
     if index == 0:
       prev_answer_ids = [0] * len(column_ids)
     else:
-      prev_answer_ids = _get_answer_ids(
-          column_ids,
-          row_ids,
-          interaction.questions[index - 1],
-      )
+      prev_answer_ids = get_answer_ids(interaction.questions[index - 1],)
     self._pad_to_seq_length(prev_answer_ids)
     features['prev_label_ids'] = create_int_feature(prev_answer_ids)
     features['question_id'] = create_string_feature(

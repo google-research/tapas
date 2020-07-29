@@ -146,20 +146,55 @@ def _get_question_id(features):
   return features["question_id"][0].decode("utf-8")
 
 
-def get_mean_cell_probs(prediction):
-  """Computes average probability per cell, aggregating over tokens."""
+def get_cell_token_probs(prediction):
   probabilities = prediction["probabilities"]
-  coords_to_probs = collections.defaultdict(list)
   for i, p in enumerate(probabilities):
     segment_id = prediction["segment_ids"][i]
     col = prediction["column_ids"][i] - 1
     row = prediction["row_ids"][i] - 1
     if col >= 0 and row >= 0 and segment_id == 1:
-      coords_to_probs[(col, row)].append(p)
+      yield i, p
+
+
+def get_mean_cell_probs(prediction):
+  """Computes average probability per cell, aggregating over tokens."""
+
+  coords_to_probs = collections.defaultdict(list)
+  for i, prob in get_cell_token_probs(prediction):
+    col = prediction["column_ids"][i] - 1
+    row = prediction["row_ids"][i] - 1
+    coords_to_probs[(col, row)].append(prob)
   return {
       coords: np.array(cell_probs).mean()
       for coords, cell_probs in coords_to_probs.items()
   }
+
+
+def get_answer_indexes(
+    prediction,
+    cell_classification_threshold,
+):
+  """Computes answer indexes."""
+  input_ids = prediction["input_ids"]
+
+  span_indexes = prediction.get("span_indexes")
+  span_logits = prediction.get("span_logits")
+  if span_indexes is not None and span_logits is not None:
+    best_logit, best_span = max(zip(span_logits, span_indexes.tolist()),)
+    logging.log_every_n(
+        logging.INFO,
+        "best_span: %s, score: %s",
+        500,
+        best_span,
+        best_logit,
+    )
+    return [input_ids[i] for i in range(best_span[0], best_span[1] + 1)]
+
+  answers = []
+  for i, prob in get_cell_token_probs(prediction):
+    if prob > cell_classification_threshold:
+      answers.append(input_ids[i])
+  return answers
 
 
 def write_predictions(
@@ -188,6 +223,7 @@ def write_predictions(
         "annotator",
         "position",
         "answer_coordinates",
+        "answer",
     ]
     if do_model_aggregation:
       header.extend(["gold_aggr", "pred_aggr"])
@@ -207,6 +243,11 @@ def write_predictions(
         continue
 
       cell_coords_to_prob = get_mean_cell_probs(prediction)
+
+      answer_indexes = get_answer_indexes(
+          prediction,
+          cell_classification_threshold,
+      )
 
       # Select the answers above a classification threshold.
       answer_coordinates = []
@@ -230,7 +271,8 @@ def write_predictions(
           "id": example_id,
           "annotator": annotator,
           "position": position,
-          "answer_coordinates": str(answer_coordinates)
+          "answer_coordinates": str(answer_coordinates),
+          "answer": str(answer_indexes),
       }
       if do_model_aggregation:
         prediction_to_write["gold_aggr"] = str(prediction["gold_aggr"][0])

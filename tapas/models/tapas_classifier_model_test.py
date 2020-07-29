@@ -91,6 +91,7 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
         max_num_columns=params["max_num_columns"],
         average_logits_per_cell=params["average_logits_per_cell"],
         select_one_column=params["select_one_column"],
+        disable_per_token_loss=params.get("disable_per_token_loss", False),
     )
     model_fn = tapas_classifier_model.model_fn_builder(tapas_config)
 
@@ -178,9 +179,8 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
 
     eval_metrics = estimator.evaluate(_input_fn, steps=params["num_eval_steps"])
 
-    for metric_name in ("eval_sequence_accuracy", "eval_recall",
-                        "eval_mean_label", "eval_precision", "eval_auc",
-                        "eval_accuracy", "eval_loss", "loss"):
+    for metric_name in ("eval_sequence_accuracy", "eval_mean_label",
+                        "eval_loss", "loss"):
       self.assertIn(metric_name, eval_metrics)
 
   @parameterized.named_parameters(("no_answer", False, False),

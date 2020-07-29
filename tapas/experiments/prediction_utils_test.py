@@ -17,7 +17,12 @@
 import os
 
 from absl import flags
+from absl import logging
 from absl.testing import absltest
+from absl.testing import parameterized
+import numpy as np
+from tapas.datasets import table_dataset
+from tapas.datasets import table_dataset_test_utils
 from tapas.experiments import prediction_utils
 from tapas.models import tapas_classifier_model
 from tapas.models.bert import modeling
@@ -26,8 +31,11 @@ import tensorflow.compat.v1 as tf
 
 FLAGS = flags.FLAGS
 
+_SpanPredictionMode = tapas_classifier_model.SpanPredictionMode
+_BATCH_SIZE = 8
 
-class PredictionUtilsTest(tf.test.TestCase):
+
+class PredictionUtilsTest(tf.test.TestCase, parameterized.TestCase):
 
   def _predict_data(self):
     return os.path.join(
@@ -53,7 +61,26 @@ class PredictionUtilsTest(tf.test.TestCase):
         self.assertIn('input_ids', example)
         self.assertIn('label_ids', example)
 
-  def _create_estimator(self):
+  def _generator_kwargs(self):
+    return dict(
+        max_seq_length=10,
+        max_predictions_per_seq=5,
+        task_type=table_dataset.TableTask.CLASSIFICATION,
+        add_aggregation_function_id=False,
+        add_classification_labels=False,
+        add_answer=False,
+        include_id=False,
+        vocab_size=10,
+        segment_vocab_size=3,
+        num_columns=3,
+        num_rows=2,
+        add_candidate_answers=False,
+        max_num_candidates=10)
+
+  def _create_estimator(
+      self,
+      span_prediction = _SpanPredictionMode.NONE,
+  ):
     # Small bert model for testing.
     bert_config = modeling.BertConfig.from_dict({
         'vocab_size': 30522,
@@ -89,6 +116,7 @@ class PredictionUtilsTest(tf.test.TestCase):
         max_num_rows=64,
         max_num_columns=32,
         average_logits_per_cell=True,
+        span_prediction=span_prediction,
         select_one_column=True)
     model_fn = tapas_classifier_model.model_fn_builder(tapas_config)
 
@@ -96,9 +124,9 @@ class PredictionUtilsTest(tf.test.TestCase):
         use_tpu=False,
         model_fn=model_fn,
         config=tf.estimator.tpu.RunConfig(model_dir=self.get_temp_dir()),
-        train_batch_size=8,
-        predict_batch_size=8,
-        eval_batch_size=8)
+        train_batch_size=_BATCH_SIZE,
+        predict_batch_size=_BATCH_SIZE,
+        eval_batch_size=_BATCH_SIZE)
 
     return estimator
 
@@ -126,6 +154,58 @@ class PredictionUtilsTest(tf.test.TestCase):
         estimator=self._create_estimator(),
         examples_by_position=examples_by_position)
     self.assertNotEmpty(results)
+
+  def test_span_selection(self):
+    prediction = {
+        'input_ids': np.array([1, 2, 3, 4]),
+        'span_indexes': np.array([[1, 1], [1, 2], [2, 1]]),
+        'span_logits': np.array([-100.0, 10.0, 5.0]),
+    }
+    answer = prediction_utils.get_answer_indexes(
+        prediction, cell_classification_threshold=0.5)
+    self.assertAllEqual(answer, [2, 3])
+
+  def test_token_selection(self):
+    prediction = {
+        'input_ids': np.array([0, 1, 2, 3, 4]),
+        'probabilities': np.array([1.0, 0.5, 0.2, 0.5, 0.3]),
+        'column_ids': np.array([0, 1, 2, 3, 4]),
+        'row_ids': np.array([0, 1, 1, 2, 2]),
+        'segment_ids': np.array([0, 1, 1, 1, 1]),
+    }
+    answer = prediction_utils.get_answer_indexes(
+        prediction, cell_classification_threshold=0.49999)
+    logging.info(answer)
+    self.assertAllEqual(answer, [1, 3])
+
+  @parameterized.parameters(
+      (_SpanPredictionMode.SPAN,),
+      (_SpanPredictionMode.BOUNDARY,),
+      (_SpanPredictionMode.NONE,),
+  )
+  def test_end_to_end(self, span_prediction):
+    estimator = self._create_estimator(span_prediction=span_prediction)
+
+    def _input_fn(params):
+      return table_dataset_test_utils.create_random_dataset(
+          num_examples=_BATCH_SIZE * 2,
+          batch_size=params['batch_size'],
+          repeat=False,
+          generator_kwargs=self._generator_kwargs())
+
+    result = estimator.predict(_input_fn)
+    num_examples = 0
+    for prediction in result:
+      if span_prediction != _SpanPredictionMode.NONE:
+        self.assertIn('span_logits', prediction)
+        self.assertIn('span_indexes', prediction)
+      logging.info('prediction: %s', prediction)
+      _ = prediction_utils.get_answer_indexes(
+          prediction,
+          cell_classification_threshold=0.5,
+      )
+      num_examples += 1
+    self.assertEqual(num_examples, _BATCH_SIZE * 2)
 
 
 if __name__ == '__main__':

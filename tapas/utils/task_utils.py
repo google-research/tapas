@@ -17,19 +17,36 @@
 
 import collections
 import os
-from typing import Text, Mapping
+from typing import Mapping, Text, Iterable
 
+from tapas.protos import interaction_pb2
 from tapas.utils import interaction_utils_parser
 from tapas.utils import sqa_utils
 from tapas.utils import tasks
 from tapas.utils import wikisql_utils
 from tapas.utils import wtq_utils
 
+import tensorflow.compat.v1 as tf
+
 _Mode = interaction_utils_parser.SupervisionMode
 
 
 def get_interaction_dir(output_dir):
   return os.path.join(output_dir, 'interactions')
+
+
+def _to_tfrecord(
+    interactions,
+    output_dir,
+):
+  """Dump interactions to TFRecord files."""
+  interactions_dir = get_interaction_dir(output_dir)
+  tf.io.gfile.makedirs(interactions_dir)
+  for name, examples in interactions.items():
+    tfrecord_file = os.path.join(interactions_dir, f'{name}.tfrecord')
+    with tf.io.TFRecordWriter(tfrecord_file) as writer:
+      for interaction in examples:
+        writer.write(interaction.SerializeToString())
 
 
 def get_train_filename(task):

@@ -272,7 +272,7 @@ def reduce_sum(values, index, name='segmented_reduce_sum'):
   return _segment_reduce(values, index, tf.math.unsorted_segment_sum, name)
 
 
-def reduce_max(values, index, name='segmented_reduce_sum'):
+def reduce_max(values, index, name='segmented_reduce_max'):
   """Computes the maximum over segments.
 
   This operations computes the maximum over segments, with support for:
@@ -295,3 +295,8 @@ def reduce_max(values, index, name='segmented_reduce_sum'):
     IndexMap with shape [B1, B2, ..., Bn, num_segments].
   """
   return _segment_reduce(values, index, tf.math.unsorted_segment_max, name)
+
+
+def reduce_min(values, index, name='segmented_reduce_min'):
+  """Computes the minimum over segments."""
+  return _segment_reduce(values, index, tf.math.unsorted_segment_min, name)

@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# Lint as: python3
 """The main BERT model and related functions."""
 
 import collections
@@ -19,8 +20,10 @@ import copy
 import json
 import math
 import re
+from absl import logging
 import numpy as np
 import six
+from tapas.models import segmented_tensor
 import tensorflow.compat.v1 as tf
 import tf_slim
 
@@ -139,10 +142,12 @@ class BertModel(object):
                input_ids,
                input_mask=None,
                attention_mask=None,
+               token_weights=None,
                custom_attention_layer=None,
                token_type_ids=None,
                extra_embeddings=None,
                use_position_embeddings=True,
+               reset_position_index_per_cell=False,
                scope=None):
     """Constructor for BertModel.
 
@@ -154,6 +159,8 @@ class BertModel(object):
       input_mask: (optional) int32 Tensor of shape [batch_size, seq_length].
       attention_mask: (optional) float32 Tensor of shape
         [batch_size, seq_length, seq_length].
+      token_weights: (optional) float32 Tensor of shape
+        [batch_size, seq_length] in [0,1].
       custom_attention_layer: (optional) function with the same signature as
         `attention_layer` in order to replace it for sparse alternatives.
       token_type_ids: (optional) nested structure of int32 Tensors of shape
@@ -163,6 +170,8 @@ class BertModel(object):
         embeddings.
       use_position_embeddings: (optional) bool. Whether to use position
         embeddings.
+      reset_position_index_per_cell: bool. Whether to restart position index
+        when a new cell starts.
       scope: (optional) variable scope. Defaults to "bert".
 
     Raises:
@@ -180,6 +189,8 @@ class BertModel(object):
 
     if input_mask is None:
       input_mask = tf.ones(shape=[batch_size, seq_length], dtype=tf.int32)
+    if token_weights is not None:
+      input_mask = token_weights * tf.cast(input_mask, dtype=tf.float32)
 
     if token_type_ids is None:
       token_type_ids = tf.zeros(shape=[batch_size, seq_length], dtype=tf.int32)
@@ -203,6 +214,7 @@ class BertModel(object):
             token_type_vocab_size=config.type_vocab_size,
             token_type_embedding_name="token_type_embeddings",
             use_position_embeddings=use_position_embeddings,
+            reset_position_index_per_cell=reset_position_index_per_cell,
             position_embedding_name="position_embeddings",
             initializer_range=config.initializer_range,
             max_position_embeddings=config.max_position_embeddings,
@@ -337,7 +349,7 @@ def get_activation(activation_string):
     raise ValueError("Unsupported activation: %s" % act)
 
 
-def get_assignment_map_from_checkpoint(tvars, init_checkpoint):
+def get_assignment_map_from_checkpoint(tvars, init_checkpoint, scope=None):
   """Compute the union of the current variables and checkpoint variables."""
   assignment_map = {}
   initialized_variable_names = {}
@@ -354,10 +366,11 @@ def get_assignment_map_from_checkpoint(tvars, init_checkpoint):
 
   assignment_map = collections.OrderedDict()
   for x in init_vars:
-    (name, var) = (x[0], x[1])
+    (short_name, var) = (x[0], x[1])
+    name = f"{scope}/{short_name}" if scope else short_name
     if name not in name_to_variable:
       continue
-    assignment_map[name] = name
+    assignment_map[short_name] = name
     initialized_variable_names[name] = 1
     initialized_variable_names[name + ":0"] = 1
 
@@ -428,12 +441,67 @@ def embedding_lookup(input_ids,
   return (output, embedding_table)
 
 
+def _get_absolute_position_embeddings(full_position_embeddings, seq_length,
+                                      width, num_dims):
+  """Compute absolute position embeddings."""
+  # Since the position embedding table is a learned variable, we create it
+  # using a (long) sequence length `max_position_embeddings`. The actual
+  # sequence length might be shorter than this, for faster training of
+  # tasks that do not have long sequences.
+  #
+  # So `full_position_embeddings` is effectively an embedding table
+  # for position [0, 1, 2, ..., max_position_embeddings-1], and the current
+  # sequence has positions [0, 1, 2, ... seq_length-1], so we can just
+  # perform a slice.
+  position_embeddings = tf.slice(full_position_embeddings, [0, 0],
+                                 [seq_length, -1])
+
+  # Only the last two dimensions are relevant (`seq_length` and `width`), so
+  # we broadcast among the first dimensions, which is typically just
+  # the batch size.
+  position_broadcast_shape = []
+  for _ in range(num_dims - 2):
+    position_broadcast_shape.append(1)
+  position_broadcast_shape.extend([seq_length, width])
+  position_embeddings = tf.reshape(position_embeddings,
+                                   position_broadcast_shape)
+  return position_embeddings
+
+
+def _get_relative_position_embeddings(
+    full_position_embeddings,
+    token_type_ids,
+    token_type_vocab_size,
+    seq_length,
+    batch_size,
+):
+  """Create position embeddings that restart at every cell."""
+  col_index = segmented_tensor.IndexMap(
+      token_type_ids[1], token_type_vocab_size[1], batch_dims=1)
+  row_index = segmented_tensor.IndexMap(
+      token_type_ids[2], token_type_vocab_size[2], batch_dims=1)
+  full_index = segmented_tensor.ProductIndexMap(col_index, row_index)
+  position = tf.expand_dims(tf.range(seq_length), axis=0)
+  logging.info("position: %s", position)
+  batched_position = tf.repeat(position, repeats=batch_size, axis=0)
+  logging.info("batched_position: %s", batched_position)
+  logging.info("token_type_ids: %s", token_type_ids[1])
+  first_position_per_segment = segmented_tensor.reduce_min(
+      batched_position, full_index)[0]
+  first_position = segmented_tensor.gather(first_position_per_segment,
+                                           full_index)
+  position_embeddings = tf.nn.embedding_lookup(full_position_embeddings,
+                                               position - first_position)
+  return position_embeddings
+
+
 def embedding_postprocessor(input_tensor,
                             use_token_type=False,
                             token_type_ids=None,
-                            token_type_vocab_size=16,
+                            token_type_vocab_size=None,
                             token_type_embedding_name="token_type_embeddings",
                             use_position_embeddings=True,
+                            reset_position_index_per_cell=False,
                             position_embedding_name="position_embeddings",
                             initializer_range=0.02,
                             max_position_embeddings=512,
@@ -453,6 +521,8 @@ def embedding_postprocessor(input_tensor,
       for token type ids.
     use_position_embeddings: bool. Whether to add position embeddings for the
       position of each token in the sequence.
+    reset_position_index_per_cell: bool. Whether to restart position index when
+      a new cell starts.
     position_embedding_name: string. The name of the embedding table variable
       for positional embeddings.
     initializer_range: float. Range of the weight initialization.
@@ -508,28 +578,22 @@ def embedding_postprocessor(input_tensor,
           name=position_embedding_name,
           shape=[max_position_embeddings, width],
           initializer=create_initializer(initializer_range))
-      # Since the position embedding table is a learned variable, we create it
-      # using a (long) sequence length `max_position_embeddings`. The actual
-      # sequence length might be shorter than this, for faster training of
-      # tasks that do not have long sequences.
-      #
-      # So `full_position_embeddings` is effectively an embedding table
-      # for position [0, 1, 2, ..., max_position_embeddings-1], and the current
-      # sequence has positions [0, 1, 2, ... seq_length-1], so we can just
-      # perform a slice.
-      position_embeddings = tf.slice(full_position_embeddings, [0, 0],
-                                     [seq_length, -1])
-      num_dims = len(output.shape.as_list())
-
-      # Only the last two dimensions are relevant (`seq_length` and `width`), so
-      # we broadcast among the first dimensions, which is typically just
-      # the batch size.
-      position_broadcast_shape = []
-      for _ in range(num_dims - 2):
-        position_broadcast_shape.append(1)
-      position_broadcast_shape.extend([seq_length, width])
-      position_embeddings = tf.reshape(position_embeddings,
-                                       position_broadcast_shape)
+      if not reset_position_index_per_cell:
+        num_dims = len(output.shape.as_list())
+        position_embeddings = _get_absolute_position_embeddings(
+            full_position_embeddings,
+            seq_length=seq_length,
+            width=width,
+            num_dims=num_dims,
+        )
+      else:
+        position_embeddings = _get_relative_position_embeddings(
+            full_position_embeddings,
+            token_type_ids,
+            token_type_vocab_size,
+            seq_length,
+            batch_size,
+        )
       output += position_embeddings
 
   if extra_embeddings is not None:
@@ -826,7 +890,10 @@ def attention_layer(from_tensor,
     # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
     # masked positions, this operation will create a tensor which is 0.0 for
     # positions we want to attend and -10000.0 for masked positions.
-    adder = (1.0 - tf.cast(attention_mask, tf.float32)) * -10000.0
+    adder = tf.math.log(tf.cast(attention_mask, tf.float32))
+    adder = tf.where(
+        tf.is_finite(adder), adder,
+        tf.zeros_like(adder, dtype=tf.float32) - 10000.0)
 
     # Since we are adding it to the raw scores before the softmax, this is
     # effectively the same as removing these entirely.

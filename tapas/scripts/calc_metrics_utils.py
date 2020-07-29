@@ -45,6 +45,7 @@ class Example:
   has_gold_answer: bool
   pred_cell_coo: Set[Tuple[int, int]] = dataclasses.field(default_factory=set)
   pred_agg_function: int = _Answer.NONE
+  weight: float = 1.0
 
 
 def read_data_examples_from_interactions(
@@ -95,6 +96,13 @@ def read_predictions(predictions_path, examples):
     example.pred_cell_coo = prediction_utils.parse_coordinates(
         row['answer_coordinates'])
     example.pred_agg_function = int(row.get('pred_aggr', '0'))
+    if 'column_scores' in row:
+      column_scores = list(filter(None, row['column_scores'][1:-1].split(' ')))
+      removed_column_scores = [
+          float(score) for score in column_scores if float(score) < 0.0
+      ]
+      if column_scores:
+        example.weight = len(removed_column_scores) / len(column_scores)
 
 
 def _calc_acc(correct):
@@ -273,6 +281,7 @@ class DenotationStats:
   is_correct: bool
   pred_result: DenotationResult
   gold_result: Optional[DenotationResult]
+  weight: float
 
 
 def _highlight_cells(coordinates, table):
@@ -353,38 +362,46 @@ def get_denotation_stats(example):
       is_correct=is_correct,
       gold_result=gold_result,
       pred_result=pred_result,
+      weight=example.weight * float(is_correct),
   )
 
 
-def calc_denotation_accuracy(examples,
-                             denotation_errors_path,
-                             predictions_file_name):
-  """Calculates the denotation accuracy."""
+def calc_weighted_denotation_accuracy(examples,
+                                      denotation_errors_path,
+                                      predictions_file_name,
+                                      add_weights):
+  """Calculates the denotation accuracy weighted by the column scores."""
   examples_to_write = []
   for example_id, example in sorted(examples.items()):
     denotation_stats = get_denotation_stats(example)
+    example_stats = [example_id, example.question, denotation_stats.is_correct]
+    if add_weights:
+      example_stats.append(example.weight)
     examples_to_write.append(
-        [example_id, example.question, denotation_stats.is_correct] +
+        example_stats +
         _get_debug_row(denotation_stats.gold_result, example.table) +
         _get_debug_row(denotation_stats.pred_result, example.table))
-
-  frame = pd.DataFrame(
-      examples_to_write,
-      columns=[
-          'example_id',
-          'question',
-          'is_correct',
-          'gold denotation',
-          'gold cell values',
-          'gold cell coordinates',
-          'gold aggregation',
-          'gold table',
-          'pred denotation',
-          'pred cell values',
-          'pred cell coordinates',
-          'pred aggregation',
-          'pred table',
-      ])
+  columns = [
+      'example_id',
+      'question',
+      'is_correct',
+      'gold denotation',
+      'gold cell values',
+      'gold cell coordinates',
+      'gold aggregation',
+      'gold table',
+      'pred denotation',
+      'pred cell values',
+      'pred cell coordinates',
+      'pred aggregation',
+      'pred table',
+  ]
+  if add_weights:
+    weights_columns = columns[:3]
+    weights_columns.append('weight')
+    weights_columns.extend(columns[3:])
+    columns = weights_columns
+  frame = pd.DataFrame(examples_to_write, columns=columns)
 
   if denotation_errors_path is not None:
     examples_file = os.path.join(
@@ -395,5 +412,22 @@ def calc_denotation_accuracy(examples,
 
   denotation_acc = frame['is_correct'].mean()
   logging.info('denotation_accuracy=%f', denotation_acc)
+  stats = {'denotation_accuracy': denotation_acc}
+  if not add_weights:
+    return stats
+  weighted_denotation_acc = frame['weight'].mean()
+  stats['weighted_denotation_accuracy'] = weighted_denotation_acc
+  logging.info('weighted_denotation_accuracy=%f', weighted_denotation_acc)
   logging.info('total_test_examples=%d', len(examples))
-  return denotation_acc
+  return stats
+
+
+def calc_denotation_accuracy(examples,
+                             denotation_errors_path,
+                             predictions_file_name):
+  """Calculates the denotation accuracy."""
+  return calc_weighted_denotation_accuracy(
+      examples,
+      denotation_errors_path,
+      predictions_file_name,
+      add_weights=False)['denotation_accuracy']

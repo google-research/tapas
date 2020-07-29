@@ -105,7 +105,7 @@ python3 tapas/experiments/tapas_pretraining_experiment.py \
   --train_batch_size=512 \
   --tpu_iterations_per_loop=5000 \
   --num_eval_steps=100 \
-  --save_checkpoints_steps=600 \
+  --save_checkpoints_steps=5000 \
   --num_train_examples=512000000 \
   --max_seq_length=128 \
   --input_file_train="${data}/train.tfrecord" \
@@ -226,20 +226,7 @@ Evaluation with the default test batch size (32) should be possible on GPU.
 
 ## <a name="how-to-cite-tapas"></a>How to cite TAPAS?
 
-You can cite the [paper to appear at ACL](https://arxiv.org/abs/2004.02349):
-
-```
-@inproceedings{49053,
-title = {Tapas: Weakly Supervised Table Parsing via Pre-training},
-author = {Jonathan Herzig and Paweł Krzysztof Nowak and Thomas Müller and Francesco Piccinno and Julian Martin Eisenschlos},
-year = {2020},
-URL = {https://arxiv.org/abs/2004.02349},
-note = {to appear},
-booktitle = {Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)},
-address = {Seattle, Washington, United States}
-}
-```
-
+You can cite the [ACL 2020 paper](https://www.aclweb.org/anthology/2020.acl-main.398/).
 
 ## Disclaimer
 

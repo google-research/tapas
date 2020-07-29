@@ -49,7 +49,8 @@ def _read_data_examples(data_path):
           gold_cell_coo,
           gold_agg_function,
           float_answer,
-          has_gold_answer=True)
+          has_gold_answer=True,
+          weight=0.5)
       data_examples[ex_id] = ex
   return data_examples
 
@@ -74,13 +75,23 @@ def _read_and_store_tables(tables_path, output_tables_file, tables_to_store):
 
 def _calc_denotation_accuracy(tables_file, examples, denotation_errors_path,
                               predictions_file_name):
+  return _calc_weighted_denotation_accuracy(
+      tables_file,
+      examples,
+      denotation_errors_path,
+      predictions_file_name,
+      add_weights=False)['denotation_accuracy']
+
+
+def _calc_weighted_denotation_accuracy(tables_file, examples,
+                                       denotation_errors_path,
+                                       predictions_file_name, add_weights):
   with tf.io.gfile.GFile(tables_file, 'rb') as f:
     tables = pickle.load(f)
   for example in examples.values():
     example.table = tables[example.table_id]
-  return calc_metrics_utils.calc_denotation_accuracy(examples,
-                                                     denotation_errors_path,
-                                                     predictions_file_name)
+  return calc_metrics_utils.calc_weighted_denotation_accuracy(
+      examples, denotation_errors_path, predictions_file_name, add_weights)
 
 
 def _write_predictions(data,
@@ -158,8 +169,16 @@ def _write_tables_dict(headers=None, data=None):
 
 def _write_dataset(dataset):
   headers = [
-      'id', 'annotator', 'position', 'question', 'table_file',
-      'answer_coordinates', 'answer_text', 'aggregation', 'float_answer'
+      'id',
+      'annotator',
+      'position',
+      'question',
+      'table_file',
+      'answer_coordinates',
+      'answer_text',
+      'aggregation',
+      'float_answer',
+      'column_scores',
   ]
   dataset_df = pd.DataFrame(columns=headers, data=dataset)
   data_path = tempfile.mktemp(prefix='examples_')
@@ -172,24 +191,24 @@ def _write_synthetic_dataset(table_name):
   dataset = ([
       [
           'dev-0', '0', '0', '-', table_name, '["(2, 1)", "(2, 2)"]', '["-"]',
-          calc_metrics_utils._Answer.NONE, ''
+          calc_metrics_utils._Answer.NONE, '', 1.0
       ],
       [
           'dev-1', '0', '0', '-', table_name, '["(1, 2)", "(1, 3)", "(1,4)"]',
-          '["-"]', calc_metrics_utils._Answer.SUM, ''
+          '["-"]', calc_metrics_utils._Answer.SUM, '', 1.0
       ],
       [
           'dev-2', '0', '0', '-', table_name,
           '["(0, 0)","(0, 1)","(0, 2)","(0, 3)","(0, 4)","(0, 5)"]', '["-"]',
-          calc_metrics_utils._Answer.COUNT, ''
+          calc_metrics_utils._Answer.COUNT, '', 1.0
       ],
       [
           'dev-3', '0', '0', '-', table_name, '["(0, 4)","(1, 4)"]', '["-"]',
-          calc_metrics_utils._Answer.AVERAGE, ''
+          calc_metrics_utils._Answer.AVERAGE, '', 1.0
       ],
       [
           'dev-4', '0', '0', '-', table_name, '["(0, 4)","(1, 4)"]', '["-"]',
-          calc_metrics_utils._Answer.SUM, ''
+          calc_metrics_utils._Answer.SUM, '', 1.0
       ],
   ])
   return _write_dataset(dataset)
@@ -263,11 +282,28 @@ class CalcMetricsTest(parameterized.TestCase):
     self.assertEqual(denotation_errors.iloc[0, 5], "['6.13', 'Richmond']")
     self.assertEqual(denotation_errors.iloc[0, 7], '[(2, 1), (2, 2)]')
 
+  def test_weighted_denotation_accuracy(self):
+    test_tmpdir, output_tables_file, table_name = _write_tables_dict()
+    data_path = _write_synthetic_dataset(table_name)
+    examples = _read_data_examples(data_path)
+    predictions_path = _write_synthetic_predictions()
+    calc_metrics_utils.read_predictions(predictions_path, examples)
+    predictions_file_name = 'predictions'
+    stats = _calc_weighted_denotation_accuracy(
+        output_tables_file,
+        examples,
+        denotation_errors_path=test_tmpdir,
+        predictions_file_name=predictions_file_name,
+        add_weights=True,
+    )
+    self.assertEqual(stats['denotation_accuracy'], 0.8)
+    self.assertEqual(stats['weighted_denotation_accuracy'], 0.5)
+
   def test_calc_denotation_accuracy_handles_nans(self):
     test_tmpdir, output_tables_file, table_name = _write_tables_dict()
     data_path = _write_dataset([[
         'dev-0', '0', '0', '-', table_name, '[]', '[]',
-        calc_metrics_utils._Answer.SUM, 'NAN'
+        calc_metrics_utils._Answer.SUM, 'NAN', 0.5
     ]])
     examples = _read_data_examples(data_path)
     predictions_path = _write_predictions(
@@ -285,15 +321,8 @@ class CalcMetricsTest(parameterized.TestCase):
     test_tmpdir, output_tables_file, table_name = _write_tables_dict(
         headers=['FLOAT'], data=[['992.39']])
     data_path = _write_dataset([[
-        'dev-0',
-        '0',
-        '0',
-        '-',
-        table_name,
-        '[]',
-        '[]',
-        calc_metrics_utils._Answer.NONE,
-        '992.3900146484375',
+        'dev-0', '0', '0', '-', table_name, '[]', '[]',
+        calc_metrics_utils._Answer.NONE, '992.3900146484375', 0.5
     ]])
     examples = _read_data_examples(data_path)
     predictions_path = _write_predictions(
