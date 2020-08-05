@@ -134,6 +134,52 @@ class TfExampleUtilsTest(absltest.TestCase):
           _get_float_feature(example, 'question_numeric_values'),
           _clean_nans([2.0] + [_NAN] * (_MAX_NUMERIC_VALUES - 1)))
 
+  def test_convert_with_trimmed_cell(self):
+    max_seq_length = 16
+    with tempfile.TemporaryDirectory() as input_dir:
+      vocab_file = os.path.join(input_dir, 'vocab.txt')
+      _create_vocab(vocab_file, range(10))
+      converter = tf_example_utils.ToClassifierTensorflowExample(
+          config=tf_example_utils.ClassifierConversionConfig(
+              vocab_file=vocab_file,
+              max_seq_length=max_seq_length,
+              max_column_id=max_seq_length,
+              max_row_id=max_seq_length,
+              strip_column_names=False,
+              add_aggregation_candidates=False,
+              cell_trim_length=2,
+              drop_rows_to_fit=True))
+      interaction = interaction_pb2.Interaction(
+          table=interaction_pb2.Table(
+              columns=[
+                  interaction_pb2.Cell(text='A'),
+                  interaction_pb2.Cell(text='A A'),
+                  interaction_pb2.Cell(text='A A A A'),
+              ],
+              rows=[
+                  interaction_pb2.Cells(cells=[
+                      interaction_pb2.Cell(text='A A A'),
+                      interaction_pb2.Cell(text='A A A'),
+                      interaction_pb2.Cell(text='A A A'),
+                  ]),
+                  interaction_pb2.Cells(cells=[
+                      interaction_pb2.Cell(text='A A A'),
+                      interaction_pb2.Cell(text='A A A'),
+                      interaction_pb2.Cell(text='A A A'),
+                  ]),
+              ],
+          ),
+          questions=[interaction_pb2.Question(id='id', original_text='A')],
+      )
+      number_annotation_utils.add_numeric_values(interaction)
+      example = converter.convert(interaction, 0)
+      logging.info(example)
+      # We expect the second row to be dropped all cells should be trimmed to
+      # >= 2 tokens.
+      self.assertEqual(
+          _get_int_feature(example, 'column_ids'),
+          [0, 0, 0, 1, 2, 2, 3, 3, 1, 1, 2, 2, 3, 3, 0, 0])
+
   def test_convert_with_document_title_and_answer_text(self):
     max_seq_length = 15
     with tempfile.TemporaryDirectory() as input_dir:

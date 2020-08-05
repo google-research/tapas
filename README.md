@@ -5,14 +5,18 @@ in the paper [TAPAS: Weakly Supervised Table Parsing via Pre-training](#how-to-c
 
 ## News
 
-2020/06/10
- - Bump TensorFlow to v2.2
+#### 2020/08/05
+ * New pre-trained models (see Data section below)
+ * `reset_position_index_per_cell`: New option that allows to train models that instead of using absolute position indices reset the position index when a new cell starts.
 
-2020/06/08
- - Released the [pre-training data](https://github.com/google-research/tapas/blob/master/PRETRAIN_DATA.md).
+#### 2020/06/10
+ * Bump TensorFlow to v2.2
 
-2020/05/07
- - Added a [colab](http://tiny.cc/tapas-colab) to try predictions on SQA
+#### 2020/06/08
+ * Released the [pre-training data](https://github.com/google-research/tapas/blob/master/PRETRAIN_DATA.md).
+
+#### 2020/05/07
+ * Added a [colab](http://tiny.cc/tapas-colab) to try predictions on SQA
 
 ## Installation
 
@@ -45,6 +49,86 @@ tox
 
 See the section below for the pre-training data.
 
+### New Models
+
+Based on the pre-trained checkpoints available at the [BERT github page](https://github.com/google-research/bert/blob/master/README.md).
+See the page or the [paper](https://arxiv.org/abs/1908.08962) for detailed information on the model dimensions.
+
+**Reset** refers to whether the parameter `reset_position_index_per_cell` was
+set to true or false during training. In general it's recommended to set it to true.
+
+The accuracy depends on the respective task. It's denotation accuracy for
+WTQ and WIKISQL, average position accuracy with gold labels for the previous answers for SQA and Mask-LM accuracy for Mask-LM.
+
+The models were trained in a chain as indicated by the model name.
+For example, *sqa_masklm* means the model was first trained on the Mask-LM task and then on SQA. No destillation was performed.
+
+#### WTQ
+Size     |  Reset  | Accuracy | Link
+-------- | --------| -------- | ----
+LARGE | noreset | 0.4822 | [tapas_wtq_wikisql_sqa_masklm_large.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wtq_wikisql_sqa_masklm_large.zip)
+LARGE | reset | 0.4952 | [tapas_wtq_wikisql_sqa_masklm_large_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wtq_wikisql_sqa_masklm_large_reset.zip)
+BASE | noreset | 0.4288 | [tapas_wtq_wikisql_sqa_masklm_base.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wtq_wikisql_sqa_masklm_base.zip)
+BASE | reset | 0.4433 | [tapas_wtq_wikisql_sqa_masklm_base_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wtq_wikisql_sqa_masklm_base_reset.zip)
+MEDIUM | noreset | 0.4158 | [tapas_wtq_wikisql_sqa_masklm_medium.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wtq_wikisql_sqa_masklm_medium.zip)
+MEDIUM | reset | 0.4097 | [tapas_wtq_wikisql_sqa_masklm_medium_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wtq_wikisql_sqa_masklm_medium_reset.zip)
+SMALL | noreset | 0.3267 | [tapas_wtq_wikisql_sqa_masklm_small.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wtq_wikisql_sqa_masklm_small.zip)
+SMALL | reset | 0.3670 | [tapas_wtq_wikisql_sqa_masklm_small_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wtq_wikisql_sqa_masklm_small_reset.zip)
+MINI | noreset | 0.2275 | [tapas_wtq_wikisql_sqa_masklm_mini.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wtq_wikisql_sqa_masklm_mini.zip)
+MINI | reset | 0.2409 | [tapas_wtq_wikisql_sqa_masklm_mini_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wtq_wikisql_sqa_masklm_mini_reset.zip)
+TINY | noreset | 0.0901 | [tapas_wtq_wikisql_sqa_masklm_tiny.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wtq_wikisql_sqa_masklm_tiny.zip)
+TINY | reset | 0.0947 | [tapas_wtq_wikisql_sqa_masklm_tiny_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wtq_wikisql_sqa_masklm_tiny_reset.zip)
+
+#### WIKISQL
+Size     |  Reset  | Accuracy | Link
+-------- | --------| -------- | ----
+LARGE | noreset | 0.8862 | [tapas_wikisql_sqa_masklm_large.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wikisql_sqa_masklm_large.zip)
+LARGE | reset | 0.8917 | [tapas_wikisql_sqa_masklm_large_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wikisql_sqa_masklm_large_reset.zip)
+BASE | noreset | 0.8772 | [tapas_wikisql_sqa_masklm_base.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wikisql_sqa_masklm_base.zip)
+BASE | reset | 0.8809 | [tapas_wikisql_sqa_masklm_base_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wikisql_sqa_masklm_base_reset.zip)
+MEDIUM | noreset | 0.8687 | [tapas_wikisql_sqa_masklm_medium.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wikisql_sqa_masklm_medium.zip)
+MEDIUM | reset | 0.8736 | [tapas_wikisql_sqa_masklm_medium_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wikisql_sqa_masklm_medium_reset.zip)
+SMALL | noreset | 0.8285 | [tapas_wikisql_sqa_masklm_small.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wikisql_sqa_masklm_small.zip)
+SMALL | reset | 0.8550 | [tapas_wikisql_sqa_masklm_small_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wikisql_sqa_masklm_small_reset.zip)
+MINI | noreset | 0.7672 | [tapas_wikisql_sqa_masklm_mini.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wikisql_sqa_masklm_mini.zip)
+MINI | reset | 0.7944 | [tapas_wikisql_sqa_masklm_mini_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wikisql_sqa_masklm_mini_reset.zip)
+TINY | noreset | 0.3237 | [tapas_wikisql_sqa_masklm_tiny.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wikisql_sqa_masklm_tiny.zip)
+TINY | reset | 0.3608 | [tapas_wikisql_sqa_masklm_tiny_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_wikisql_sqa_masklm_tiny_reset.zip)
+
+#### SQA
+Size     |  Reset  | Accuracy | Link
+-------- | --------| -------- | ----
+LARGE | noreset | 0.7002 | [tapas_sqa_masklm_large.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_sqa_masklm_large.zip)
+LARGE | reset | 0.7130 | [tapas_sqa_masklm_large_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_sqa_masklm_large_reset.zip)
+BASE | noreset | 0.6393 | [tapas_sqa_masklm_base.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_sqa_masklm_base.zip)
+BASE | reset | 0.6689 | [tapas_sqa_masklm_base_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_sqa_masklm_base_reset.zip)
+MEDIUM | noreset | 0.6026 | [tapas_sqa_masklm_medium.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_sqa_masklm_medium.zip)
+MEDIUM | reset | 0.6141 | [tapas_sqa_masklm_medium_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_sqa_masklm_medium_reset.zip)
+SMALL | noreset | 0.4976 | [tapas_sqa_masklm_small.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_sqa_masklm_small.zip)
+SMALL | reset | 0.5589 | [tapas_sqa_masklm_small_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_sqa_masklm_small_reset.zip)
+MINI | noreset | 0.3779 | [tapas_sqa_masklm_mini.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_sqa_masklm_mini.zip)
+MINI | reset | 0.3687 | [tapas_sqa_masklm_mini_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_sqa_masklm_mini_reset.zip)
+TINY | noreset | 0.2013 | [tapas_sqa_masklm_tiny.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_sqa_masklm_tiny.zip)
+TINY | reset | 0.2194 | [tapas_sqa_masklm_tiny_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_sqa_masklm_tiny_reset.zip)
+
+#### MASKLM
+Size     |  Reset  | Accuracy | Link
+-------- | --------| -------- | ----
+LARGE | noreset | 0.7513 | [tapas_masklm_large.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_masklm_large.zip)
+LARGE | reset | 0.7528 | [tapas_masklm_large_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_masklm_large_reset.zip)
+BASE | noreset | 0.7323 | [tapas_masklm_base.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_masklm_base.zip)
+BASE | reset | 0.7335 | [tapas_masklm_base_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_masklm_base_reset.zip)
+MEDIUM | noreset | 0.7059 | [tapas_masklm_medium.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_masklm_medium.zip)
+MEDIUM | reset | 0.7054 | [tapas_masklm_medium_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_masklm_medium_reset.zip)
+SMALL | noreset | 0.6818 | [tapas_masklm_small.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_masklm_small.zip)
+SMALL | reset | 0.6856 | [tapas_masklm_small_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_masklm_small_reset.zip)
+MINI | noreset | 0.6382 | [tapas_masklm_mini.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_masklm_mini.zip)
+MINI | reset | 0.6425 | [tapas_masklm_mini_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_masklm_mini_reset.zip)
+TINY | noreset | 0.4826 | [tapas_masklm_tiny.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_masklm_tiny.zip)
+TINY | reset | 0.5282 | [tapas_masklm_tiny_reset.zip](https://storage.googleapis.com/tapas_models/2020_08_05/tapas_masklm_tiny_reset.zip)
+
+### Original Models
+
 The pre-trained TAPAS checkpoints can be downloaded here:
 
 * [MASKLM base](https://storage.googleapis.com/tapas_models/2020_04_21/tapas_base.zip)
@@ -54,6 +138,8 @@ The pre-trained TAPAS checkpoints can be downloaded here:
 
 The first two models are pre-trained on the Mask-LM task and the last two
 on the Mask-LM task first and SQA second.
+
+### Fine-Tuning Data
 
 You also need to download the task data for the fine-tuning tasks:
 

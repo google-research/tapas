@@ -19,6 +19,7 @@ import collections
 import hashlib
 import random
 from typing import Iterable, List, Mapping, Optional, Text, Tuple
+
 from absl import logging
 import dataclasses
 from tapas.protos import interaction_pb2
@@ -117,8 +118,20 @@ class PretrainConversionConfig(ConversionConfig):
 
 
 @dataclasses.dataclass(frozen=True)
-class ClassifierConversionConfig(ConversionConfig):
-  add_aggregation_candidates: bool
+class TrimmedConversionConfig(ConversionConfig):
+  # if > 0: Trim cells so that the length is <= this value.
+  # Also disables further cell trimming should thus be used with
+  # 'drop_rows_to_fit' below.
+  # TODO(thomasmueller) Make this a parameter of the base config.
+  # TODO(thomasmueller) Consider giving this a better name.
+  cell_trim_length: int = -1
+
+
+@dataclasses.dataclass(frozen=True)
+class ClassifierConversionConfig(TrimmedConversionConfig):
+  add_aggregation_candidates: bool = False
+  expand_entity_descriptions: bool = False
+  entity_descriptions_sentence_limit: int = 5
   use_document_title: bool = False
   # Re-computes answer coordinates from the answer text.
   update_answer_coordinates: bool = False
@@ -215,12 +228,12 @@ def _get_all_answer_ids(
 def _find_tokens(text, segment):
   """Return start index of segment in text or None."""
   logging.info('text: %s %s', text, segment)
-  for text_index in range(1 + len(text) - len(segment)):
+  for index in range(1 + len(text) - len(segment)):
     for seg_index, seg_token in enumerate(segment):
-      if text[text_index + seg_index].piece != seg_token.piece:
+      if text[index + seg_index].piece != seg_token.piece:
         break
     else:
-      return text_index
+      return index
   return None
 
 
@@ -290,6 +303,8 @@ def _get_answer_ids(column_ids, row_ids,
   if missing_count:
     raise ValueError("Couldn't find all answers")
   return answer_ids
+
+
 
 
 class TapasTokenizer:
@@ -940,6 +955,26 @@ class ToPretrainingTensorflowExample(ToTensorflowExampleBase):
 class ToTrimmedTensorflowExample(ToTensorflowExampleBase):
   """Helper that allows squeezing a table into the max seq length."""
 
+  def __init__(self, config):
+    super(ToTrimmedTensorflowExample, self).__init__(config)
+    self._cell_trim_length = config.cell_trim_length
+
+  def _get_num_columns(self, table):
+    num_columns = len(table.columns)
+    if num_columns >= self._max_column_id:
+      raise ValueError('Too many columns')
+    return num_columns
+
+  def _get_num_rows(self, table,
+                    drop_rows_to_fit):
+    num_rows = len(table.rows)
+    if num_rows >= self._max_row_id:
+      if drop_rows_to_fit:
+        num_rows = self._max_row_id - 1
+      else:
+        raise ValueError('Too many rows')
+    return num_rows
+
   def _to_trimmed_features(
       self,
       question,
@@ -990,6 +1025,8 @@ class ToTrimmedTensorflowExample(ToTensorflowExampleBase):
     """Computes max number of tokens that can be squeezed into the budget."""
     token_budget = self._get_token_budget(question_tokens)
     _, _, max_num_tokens = self._get_table_boundaries(tokenized_table)
+    if self._cell_trim_length >= 0 and max_num_tokens > self._cell_trim_length:
+      max_num_tokens = self._cell_trim_length
     num_tokens = 0
     for num_tokens in range(max_num_tokens + 1):
       cost = self._get_table_cost(tokenized_table, num_columns, num_rows,
@@ -997,6 +1034,9 @@ class ToTrimmedTensorflowExample(ToTensorflowExampleBase):
       if cost > token_budget:
         break
     if num_tokens < max_num_tokens:
+      if self._cell_trim_length >= 0:
+        # We don't allow dynamic trimming if a cell_trim_length is set.
+        return None
       if num_tokens == 0:
         return None
     return num_tokens
@@ -1011,6 +1051,21 @@ class ToClassifierTensorflowExample(ToTrimmedTensorflowExample):
     self._use_document_title = config.use_document_title
     self._update_answer_coordinates = config.update_answer_coordinates
     self._drop_rows_to_fit = config.drop_rows_to_fit
+
+  def _tokenize_extended_question(
+      self,
+      question,
+      table,
+  ):
+    """Runs tokenizer over the question text and document title if it's used."""
+    question_tokens = self._tokenizer.tokenize(question.text)
+    text_tokens = list(question_tokens)
+    if self._use_document_title and table.document_title:
+      # TODO(thomasmueller) Consider adding a different segment id.
+      document_title_tokens = self._tokenizer.tokenize(table.document_title)
+      text_tokens.append(Token(_SEP, _SEP))
+      text_tokens.extend(document_title_tokens)
+    return text_tokens
 
   def _add_question_numeric_values(self, question,
                                    features):
@@ -1037,30 +1092,15 @@ class ToClassifierTensorflowExample(ToTrimmedTensorflowExample):
     """Converts question at 'index' to example."""
     table = interaction.table
 
-    num_rows = len(table.rows)
-    if num_rows >= self._max_row_id:
-      if self._drop_rows_to_fit:
-        num_rows = self._max_row_id - 1
-      else:
-        raise ValueError('Too many rows')
-
-    num_columns = len(table.columns)
-    if num_columns >= self._max_column_id:
-      raise ValueError('Too many columns')
+    num_rows = self._get_num_rows(table, self._drop_rows_to_fit)
+    num_columns = self._get_num_columns(table)
 
     question = interaction.questions[index]
     if not interaction.questions[index].answer.is_valid:
       raise ValueError('Invalid answer')
 
-    question_tokens = self._tokenizer.tokenize(question.text)
 
-    text_tokens = list(question_tokens)
-    if self._use_document_title and table.document_title:
-      # TODO(thomasmueller) Consider adding a different segment id.
-      document_title_tokens = self._tokenizer.tokenize(table.document_title)
-      text_tokens.append(Token(_SEP, _SEP))
-      text_tokens.extend(document_title_tokens)
-
+    text_tokens = self._tokenize_extended_question(question, table)
     tokenized_table = self._tokenize_table(table)
 
     serialized_example, features = self._to_trimmed_features(
