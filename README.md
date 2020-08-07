@@ -199,9 +199,11 @@ python3 tapas/experiments/tapas_pretraining_experiment.py \
   --init_checkpoint="${tapas_data_dir}/model.ckpt" \
   --bert_config_file="${tapas_data_dir}/bert_config.json" \
   --model_dir="..." \
+  --compression_type="" \
   --do_train
 ```
 
+Where **compression_type** should be set to **GZIP** if the tfrecords are compressed.
 You can start a separate eval job by setting `--nodo_train --doeval`.
 
 ## Running a fine-tuning task

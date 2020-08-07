@@ -30,7 +30,7 @@ def read_dataset(
     compression_type,
     is_training,
     params,
-    max_eval_count = 50000,
+    max_eval_count = 150_000,
 ):
   """Returns an input_fn that can be used with the tf.Estimator API."""
   with tf.variable_scope(name):

@@ -115,6 +115,9 @@ flags.DEFINE_string(
     "Compression to use when reading tfrecords. '' for no compression.",
 )
 
+flags.DEFINE_bool('reset_position_index_per_cell', False,
+                  'If true, reset absolute position index at every cell.')
+
 _MAX_TABLE_ID = 512
 _MAX_PREDICTIONS_PER_SEQ = 20
 _CELL_CLASSIFICATION_THRESHOLD = 0.5
@@ -381,7 +384,8 @@ def _train_and_predict(
         hparams['init_cell_selection_weights_to_zero'],
       select_one_column=hparams['select_one_column'],
       allow_empty_column_selection=hparams['allow_empty_column_selection'],
-      disable_position_embeddings=False)
+      disable_position_embeddings=False,
+      reset_position_index_per_cell=FLAGS.reset_position_index_per_cell)
 
   model_fn = tapas_classifier_model.model_fn_builder(tapas_config)
 
