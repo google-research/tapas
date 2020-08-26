@@ -15,6 +15,11 @@
 # Lint as: python3
 """Experiment utilities."""
 
+import datetime
+import os
+import time
+from typing import Iterable, Optional, Text, Tuple
+
 from absl import flags
 from tapas.models.bert import modeling
 import tensorflow.compat.v1 as tf
@@ -157,5 +162,62 @@ def build_estimator(model_fn):
           FLAGS.gradient_accumulation_steps,
       eval_batch_size=FLAGS.eval_batch_size,
       predict_batch_size=FLAGS.predict_batch_size)
+
+
+def iterate_checkpoints(
+    model_dir,
+    marker_file_prefix,
+    total_steps,
+    single_step = None,
+    minutes_to_sleep = 5,
+):
+  """Iterate over checkpoints as they appear until the final one is reached.
+
+  By default iterates over all checkpoints until completion, if `single_step`
+  argument is used only that checkpoint is returned, whether it exists or not.
+  The `marker_file_prefix` is used to write empty files as a checkpoint is
+  successfully yielded to prevent repeated work if the job is restarted.
+
+  Args:
+    model_dir: Location where checkpoints live.
+    marker_file_prefix: Location to write an empty file that marks the
+      checkpoint as processed successfully. Ignored when `single_step` is used.
+    total_steps: After each read over checkpoints, finish if `total_steps` is
+      reached or `None` is passed.
+    single_step: If specified, only return the checkpoint for this step.
+    minutes_to_sleep: Number of minutes to spleep between iterations.
+
+  Yields:
+    A tuple with a step number and checkpoint path
+  """
+  if single_step is not None:
+    checkpoint = os.path.join(model_dir, f"model.ckpt-{single_step}")
+    yield single_step, checkpoint
+    return
+  done = set()
+  while True:
+    state = tf.train.get_checkpoint_state(model_dir)
+    if state is not None:
+      for checkpoint in state.all_model_checkpoint_paths:
+        step = int(os.path.basename(checkpoint).split("-")[1])
+        if step in done:
+          continue
+        done.add(step)
+        marker_file = f"{marker_file_prefix}-{step}.done"
+        if tf.gfile.Exists(marker_file):
+          tf.logging.info(f"Skipping step {step} since marker file was found")
+          continue
+        yield step, checkpoint
+        # To force the file to be created we need to write something in it.
+        with tf.io.gfile.GFile(marker_file, "w") as f:
+          f.write(datetime.datetime.now().isoformat() + "\n")
+
+      if total_steps is None or step >= total_steps:
+        tf.logging.info(f"Checkpoint loop finished after step {step}")
+        return
+
+    if minutes_to_sleep > 0:
+      tf.logging.info(f"Sleeping {minutes_to_sleep} mins before next loop")
+      time.sleep(minutes_to_sleep * 60)
 
 

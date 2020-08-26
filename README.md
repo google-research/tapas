@@ -5,6 +5,9 @@ in the paper [TAPAS: Weakly Supervised Table Parsing via Pre-training](#how-to-c
 
 ## News
 
+#### 2020/08/26
+ * Added a [colab](http://tiny.cc/tapas-wtq-colab) to try predictions on WTQ
+
 #### 2020/08/05
  * New pre-trained models (see Data section below)
  * `reset_position_index_per_cell`: New option that allows to train models that instead of using absolute position indices reset the position index when a new cell starts.

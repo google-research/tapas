@@ -474,6 +474,7 @@ def _get_relative_position_embeddings(
     token_type_vocab_size,
     seq_length,
     batch_size,
+    max_position_embeddings,
 ):
   """Create position embeddings that restart at every cell."""
   col_index = segmented_tensor.IndexMap(
@@ -490,8 +491,9 @@ def _get_relative_position_embeddings(
       batched_position, full_index)[0]
   first_position = segmented_tensor.gather(first_position_per_segment,
                                            full_index)
-  position_embeddings = tf.nn.embedding_lookup(full_position_embeddings,
-                                               position - first_position)
+  position_embeddings = tf.nn.embedding_lookup(
+      full_position_embeddings,
+      tf.math.minimum(max_position_embeddings - 1, position - first_position))
   return position_embeddings
 
 
@@ -572,13 +574,13 @@ def embedding_postprocessor(input_tensor,
       output += token_type_embeddings
 
   if use_position_embeddings:
-    assert_op = tf.assert_less_equal(seq_length, max_position_embeddings)
-    with tf.control_dependencies([assert_op]):
-      full_position_embeddings = tf.get_variable(
-          name=position_embedding_name,
-          shape=[max_position_embeddings, width],
-          initializer=create_initializer(initializer_range))
-      if not reset_position_index_per_cell:
+    full_position_embeddings = tf.get_variable(
+        name=position_embedding_name,
+        shape=[max_position_embeddings, width],
+        initializer=create_initializer(initializer_range))
+    if not reset_position_index_per_cell:
+      assert_op = tf.assert_less_equal(seq_length, max_position_embeddings)
+      with tf.control_dependencies([assert_op]):
         num_dims = len(output.shape.as_list())
         position_embeddings = _get_absolute_position_embeddings(
             full_position_embeddings,
@@ -586,15 +588,16 @@ def embedding_postprocessor(input_tensor,
             width=width,
             num_dims=num_dims,
         )
-      else:
-        position_embeddings = _get_relative_position_embeddings(
-            full_position_embeddings,
-            token_type_ids,
-            token_type_vocab_size,
-            seq_length,
-            batch_size,
-        )
-      output += position_embeddings
+    else:
+      position_embeddings = _get_relative_position_embeddings(
+          full_position_embeddings,
+          token_type_ids,
+          token_type_vocab_size,
+          seq_length,
+          batch_size,
+          max_position_embeddings,
+      )
+    output += position_embeddings
 
   if extra_embeddings is not None:
     flat_extra_embeddings = tf.reshape(extra_embeddings,
