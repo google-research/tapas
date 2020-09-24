@@ -439,32 +439,6 @@ def _calculate_aggregate_mask(answer, output_layer_aggregation, output_bias_agg,
   return aggregate_mask
 
 
-def compute_token_logits(output_layer, temperature,
-                         init_cell_selection_weights_to_zero):
-  """Computes logits per token.
-
-  Args:
-    output_layer: <float>[batch_size, seq_length, hidden_dim] Output of the
-      encoder layer.
-    temperature: float Temperature for the Bernoulli distribution.
-    init_cell_selection_weights_to_zero: Whether the initial weights should be
-      set to 0. This ensures that all tokens have the same prior probability.
-
-  Returns:
-    <float>[batch_size, seq_length] Logits per token.
-  """
-  hidden_size = output_layer.shape.as_list()[-1]
-  output_weights = tf.get_variable(
-      "output_weights", [hidden_size],
-      initializer=tf.zeros_initializer()
-      if init_cell_selection_weights_to_zero else _classification_initializer())
-  output_bias = tf.get_variable(
-      "output_bias", shape=(), initializer=tf.zeros_initializer())
-  logits = (tf.einsum("bsj,j->bs", output_layer, output_weights) +
-            output_bias) / temperature
-  return logits
-
-
 def compute_classification_logits(num_classification_labels, output_layer):
   """Computes logits for each classification of the sequence.
 
@@ -653,7 +627,7 @@ def _get_classification_outputs(
   cell_mask, _ = segmented_tensor.reduce_mean(input_mask_float, cell_index)
 
   # Compute logits per token. These are used to select individual cells.
-  logits = compute_token_logits(
+  logits = utils.compute_token_logits(
       output_layer=output_layer,
       temperature=config.temperature,
       init_cell_selection_weights_to_zero=\
@@ -888,8 +862,6 @@ def _calculate_eval_metrics_fn(
         "eval_joint_accuracy": joint_accuracy,
     })
   return metrics
-
-
 
 
 def model_fn_builder(config):

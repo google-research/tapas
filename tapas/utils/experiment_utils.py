@@ -16,9 +16,10 @@
 """Experiment utilities."""
 
 import datetime
+import json
 import os
 import time
-from typing import Iterable, Optional, Text, Tuple
+from typing import Iterable, Optional, Text, Tuple, Mapping
 
 from absl import flags
 from tapas.models.bert import modeling
@@ -197,27 +198,77 @@ def iterate_checkpoints(
   done = set()
   while True:
     state = tf.train.get_checkpoint_state(model_dir)
-    if state is not None:
-      for checkpoint in state.all_model_checkpoint_paths:
-        step = int(os.path.basename(checkpoint).split("-")[1])
-        if step in done:
-          continue
-        done.add(step)
-        marker_file = f"{marker_file_prefix}-{step}.done"
-        if tf.gfile.Exists(marker_file):
-          tf.logging.info(f"Skipping step {step} since marker file was found")
-          continue
-        yield step, checkpoint
-        # To force the file to be created we need to write something in it.
-        with tf.io.gfile.GFile(marker_file, "w") as f:
-          f.write(datetime.datetime.now().isoformat() + "\n")
+    checkpoints = state.all_model_checkpoint_paths if state is not None else []
+    found_pending_checkpoint = False
+    for checkpoint in checkpoints:
+      step = int(os.path.basename(checkpoint).split("-")[1])
+      if step in done:
+        continue
+      done.add(step)
+      if not tf.gfile.Exists(f"{checkpoint}.index"):
+        tf.logging.info(f"Skipping step {step} since checkpoint is missing")
+        continue
+      marker_file = f"{marker_file_prefix}-{step}.done"
+      if tf.gfile.Exists(marker_file):
+        tf.logging.info(f"Skipping step {step} since marker file was found")
+        continue
+      yield step, checkpoint
+      # To force the file to be created we need to write something in it.
+      with tf.io.gfile.GFile(marker_file, "w") as f:
+        f.write(datetime.datetime.now().isoformat() + "\n")
+      found_pending_checkpoint = True
+      # We will restart the loop since the some checkpoints might have been
+      # deleted in the meantime.
+      break
 
-      if total_steps is None or step >= total_steps:
-        tf.logging.info(f"Checkpoint loop finished after step {step}")
-        return
+    if checkpoints and (total_steps is None or step >= total_steps):
+      tf.logging.info(f"Checkpoint loop finished after step {step}")
+      return
 
-    if minutes_to_sleep > 0:
+    if not found_pending_checkpoint and minutes_to_sleep > 0:
       tf.logging.info(f"Sleeping {minutes_to_sleep} mins before next loop")
       time.sleep(minutes_to_sleep * 60)
+
+
+def save_metrics(
+    model_dir,
+    mode,
+    step,
+    metrics,
+):
+  """Save metrics to file."""
+  metric_file_path = os.path.join(model_dir, f"{mode}_metrics_{step}.json")
+  with tf.io.gfile.GFile(metric_file_path, "w") as f:
+    metrics = dict(metrics, step=step)
+    f.write(json.dumps(metrics, indent=2, sort_keys=True) + "\n")
+
+
+def get_best_step_for_metric(
+    model_dir,
+    metric,
+):
+  """Finds measurements for a metric and returns the step with the best value.
+
+  Args:
+    model_dir: Location where the model was trained.
+    metric: Metric to select.
+
+  Raises:
+    ValueError: if no metric files are found.
+
+  Returns:
+    Step that maximizes the metric.
+  """
+  filepattern = os.path.join(model_dir, "eval_metrics_*.json")
+  measurements = []
+  for path in tf.io.gfile.glob(filepattern):
+    with tf.io.gfile.GFile(path) as f:
+      measurement = json.load(f)
+      measurements.append((measurement[metric], measurement["step"]))
+
+  if not measurements:
+    raise ValueError(f"Metrics missing in {model_dir}")
+
+  return max(measurements)[1]
 
 

@@ -140,6 +140,107 @@ class AddNumericTableValuesTest(parameterized.TestCase):
 
     self.assertEqual(expected_table, actual_table)
 
+  @parameterized.named_parameters(
+      ('simple', [], [], 0.7),
+      # If we remove one of the numbers from the 'Number' column we expect
+      # no values to be returned for that column.
+      ('below_threshold', [(0, 1, '')], [(1, {})], 0.7),
+      # Same as above but we also lower the threshold so we expect results.
+      ('above_threshold', [(0, 1, '')], [(1, {
+          1: _number(2),
+          2: _number(3)
+      })], 0.5),
+      # We change two number values so that they also pass as dates but still
+      # expect numbers as a result since that is the most common type.
+      ('ambiguous_values', [(1, 1, '2000'), (2, 1, '2001')], [(1, {
+          0: _number(1),
+          1: _number(2000),
+          2: _number(2001)
+      })], 0.7),
+      # Same as above but we also remove the first value, now the output should
+      # be dates since there are two dates and two numbers and we prefer dates.
+      ('ambiguous_date_values', [(0, 1, ''), (1, 1, '2000'),
+                                 (2, 1, '2001')], [(1, {
+                                     1: _date(year=2000),
+                                     2: _date(year=2001)
+                                 })], 0.5))
+  def test_table_values_with_invalid_unicode(self, row_updates,
+                                             expected_updates,
+                                             min_consolidation_fraction):
+
+    expected_table = text_format.Parse(
+        """
+          columns {
+            text: 'gold medaMedal\x80\xA6I'
+          }
+          columns {
+            text: 'gold medaMedal\x80\xA6I'
+          }
+          columns {
+            text: 'Date'
+          }
+          rows {
+            cells {
+              text: 'gold medaMedal\x80\xA6I'
+            }
+            cells {
+              text: '1'
+            }
+            cells {
+              text: 'August 2014'
+            }
+          }
+          rows {
+            cells {
+              text: 'gold medaMedal\x80\xA6I'
+            }
+            cells {
+              text: '2'
+            }
+            cells {
+              text: 'July 7'
+            }
+          }
+          rows {
+            cells {
+              text: 'gold medaMedal\x80\xA6I'
+            }
+            cells {
+              text: '3'
+            }
+            cells {
+              text: 'March 17, 2015'
+            }
+          }
+    """, interaction_pb2.Table())
+
+    for row_index, col_index, text in row_updates:
+      expected_table.rows[row_index].cells[col_index].text = text
+
+    actual_table = interaction_pb2.Table()
+    actual_table.CopyFrom(expected_table)
+    number_annotation_utils.add_numeric_table_values(
+        actual_table, min_consolidation_fraction=min_consolidation_fraction)
+
+    expected_table.rows[0].cells[1].numeric_value.CopyFrom(_number(1))
+    expected_table.rows[1].cells[1].numeric_value.CopyFrom(_number(2))
+    expected_table.rows[2].cells[1].numeric_value.CopyFrom(_number(3))
+    expected_table.rows[0].cells[2].numeric_value.CopyFrom(
+        _date(year=2014, month=8))
+    expected_table.rows[1].cells[2].numeric_value.CopyFrom(
+        _date(month=7, day=7))
+    expected_table.rows[2].cells[2].numeric_value.CopyFrom(
+        _date(year=2015, month=3, day=17))
+    for col_index, new_dict in expected_updates:
+      for row_index in range(len(expected_table.rows)):
+        expected_table.rows[row_index].cells[col_index].ClearField(
+            'numeric_value')
+        if row_index in new_dict:
+          expected_table.rows[row_index].cells[
+              col_index].numeric_value.CopyFrom(new_dict[row_index])
+
+    self.assertEqual(expected_table, actual_table)
+
 
 class AddNumericValuesTest(parameterized.TestCase):
 

@@ -27,7 +27,6 @@ from tapas.utils import tf_example_utils
 
 _RESERVED_SYMBOLS = ('[PAD]', '[UNK]', '[CLS]', '[SEP]', '[MASK]', '[EMPTY]')
 _NAN = float('nan')
-_MAX_NUMERIC_VALUES = number_annotation_utils.MAX_QUESTION_NUMERIC_VALUES
 
 
 def _get_int_feature(example, key):
@@ -130,9 +129,6 @@ class TfExampleUtilsTest(absltest.TestCase):
       self.assertEqual(
           _get_int_feature(example, 'numeric_relations'),
           [0, 0, 0, 0, 0, 0, 4, 2, 2, 4, 2, 2])
-      self.assertEqual(
-          _get_float_feature(example, 'question_numeric_values'),
-          _clean_nans([2.0] + [_NAN] * (_MAX_NUMERIC_VALUES - 1)))
 
   def test_convert_with_trimmed_cell(self):
     max_seq_length = 16
@@ -226,6 +222,61 @@ class TfExampleUtilsTest(absltest.TestCase):
       self.assertEqual(
           _get_int_feature(example, 'label_ids'),
           [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1])
+
+  def test_convert_with_invalid_unicode(self):
+    max_seq_length = 12
+    with tempfile.TemporaryDirectory() as input_dir:
+      vocab_file = os.path.join(input_dir, 'vocab.txt')
+      _create_vocab(vocab_file, range(10))
+      converter = tf_example_utils.ToClassifierTensorflowExample(
+          config=tf_example_utils.ClassifierConversionConfig(
+              vocab_file=vocab_file,
+              max_seq_length=max_seq_length,
+              max_column_id=max_seq_length,
+              max_row_id=max_seq_length,
+              strip_column_names=False,
+              add_aggregation_candidates=False,
+          ))
+      interaction = interaction_pb2.Interaction(
+          table=interaction_pb2.Table(
+              columns=[
+                  interaction_pb2.Cell(text='A\x80\xA6I'),
+                  interaction_pb2.Cell(text='B\x80\xA6I'),
+                  interaction_pb2.Cell(text='C\x80\xA6I'),
+              ],
+              rows=[
+                  interaction_pb2.Cells(cells=[
+                      interaction_pb2.Cell(text='0'),
+                      interaction_pb2.Cell(text='4'),
+                      interaction_pb2.Cell(text='5'),
+                  ]),
+                  interaction_pb2.Cells(cells=[
+                      interaction_pb2.Cell(text='1'),
+                      interaction_pb2.Cell(text='3'),
+                      interaction_pb2.Cell(text='5'),
+                  ]),
+              ],
+          ),
+          questions=[interaction_pb2.Question(id='id', original_text='2')],
+      )
+      number_annotation_utils.add_numeric_values(interaction)
+      example = converter.convert(interaction, 0)
+      logging.info(example)
+      self.assertEqual(
+          _get_int_feature(example, 'input_ids'),
+          [2, 8, 3, 1, 1, 1, 6, 10, 11, 7, 9, 11])
+      self.assertEqual(
+          _get_int_feature(example, 'row_ids'),
+          [0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2])
+      self.assertEqual(
+          _get_int_feature(example, 'column_ids'),
+          [0, 0, 0, 1, 2, 3, 1, 2, 3, 1, 2, 3])
+      self.assertEqual(
+          _get_int_feature(example, 'column_ranks'),
+          [0, 0, 0, 0, 0, 0, 1, 2, 1, 2, 1, 1])
+      self.assertEqual(
+          _get_int_feature(example, 'numeric_relations'),
+          [0, 0, 0, 0, 0, 0, 4, 2, 2, 4, 2, 2])
 
 if __name__ == '__main__':
   absltest.main()

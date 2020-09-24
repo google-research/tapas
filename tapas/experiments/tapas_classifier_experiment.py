@@ -97,6 +97,11 @@ flags.DEFINE_bool(
     "do_predict", False,
     "Whether to run the model in inference mode on the test set.")
 
+flags.DEFINE_integer(
+    "evaluated_checkpoint_step", None,
+    "The step for a specific model checkpoint to be evaluated. If None, then"
+    "all checkpoints are used.")
+
 flags.DEFINE_bool(
     "do_sequence_prediction", False,
     "Whether to run sequence prediction. (Relevant for SQA-like datasets.)")
@@ -416,6 +421,7 @@ def main(_):
     for current_step, checkpoint in experiment_utils.iterate_checkpoints(
         model_dir=estimator.model_dir,
         total_steps=total_steps,
+        single_step=FLAGS.evaluated_checkpoint_step,
         marker_file_prefix=marker_file_prefix):
 
       if FLAGS.input_file_predict is not None:

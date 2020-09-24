@@ -1,0 +1,12 @@
+# proto-file: third_party/py/tapas/google/table_pruning.proto
+# proto-message: language.tapas.TablePruningModel
+
+max_num_tokens: 6
+avg_cos_similarity {
+  use_positional_embeddings: true
+  loss: {
+    supervised { back_propagation: true }
+    train: { selection_fn: ALL }
+    eval: { selection_fn: TOP_K }
+  }
+}

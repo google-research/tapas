@@ -145,6 +145,17 @@ class TextUtilsTest(parameterized.TestCase, absltest.TestCase):
     for start, end in indexes:
       self.assertEqual(needle, haystack[start:end])
 
+  def test_filter_invalid_unicode(self):
+    invalid_unicode = bytes("gold medaMedal\x80\xA6I", "utf-8")
+    valid_text, is_invalid = text_utils.filter_invalid_unicode(invalid_unicode)
+    self.assertTrue(is_invalid)
+    self.assertEqual(valid_text, "")
+
+    text = "gold medaMedal"
+    valid_text, is_invalid = text_utils.filter_invalid_unicode(text)
+    self.assertFalse(is_invalid)
+    self.assertEqual(valid_text, text)
+
 
 if __name__ == "__main__":
   absltest.main()

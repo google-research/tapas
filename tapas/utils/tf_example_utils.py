@@ -41,7 +41,6 @@ _MAX_NUM_CANDIDATES = 1000
 _MAX_NUM_ROWS = 32
 _WP_PER_CELL = 1.5
 _MAX_INDEX_LENGTH = int(_MAX_NUM_CANDIDATES * _MAX_NUM_ROWS * _WP_PER_CELL)
-_MAX_NUMERIC_VALUES = number_annotation_utils.MAX_QUESTION_NUMERIC_VALUES
 _MAX_INT = 2**32 - 1
 
 
@@ -1071,26 +1070,6 @@ class ToClassifierTensorflowExample(ToTrimmedTensorflowExample):
       text_tokens.extend(document_title_tokens)
     return text_tokens
 
-  def _add_question_numeric_values(self, question,
-                                   features):
-    """Add numeric values in the question as a fixed length float feature.
-
-    Args:
-      question: The question, numeric values are used.
-      features: Output.
-    """
-    question_numeric_values = [_NAN] * _MAX_NUMERIC_VALUES
-    count = 0
-    for numeric_value_span in question.annotations.spans:
-      for value in numeric_value_span.values:
-        if value.HasField('float_value'):
-          if count < _MAX_NUMERIC_VALUES:
-            question_numeric_values[count] = value.float_value
-          count += 1
-
-    features['question_numeric_values'] = create_float_feature(
-        question_numeric_values)
-
   def convert(self, interaction,
               index):
     """Converts question at 'index' to example."""
@@ -1155,8 +1134,6 @@ class ToClassifierTensorflowExample(ToTrimmedTensorflowExample):
     answer = question.answer.float_value if question.answer.HasField(
         'float_value') else _NAN
     features['answer'] = create_float_feature([answer])
-
-    self._add_question_numeric_values(question, features)
 
     if self._add_aggregation_candidates:
       rng = random.Random(fingerprint(question.id))

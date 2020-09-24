@@ -30,7 +30,7 @@ Table = interaction_pb2.Table
 class ConvertPredictionsUtilsTest(absltest.TestCase):
 
   def test_convert_single_no_pred_aggr(self):
-    interactions_path = tempfile.mktemp()
+    interactions_path = tempfile.mktemp(suffix='.tfrecord')
     with tf.python_io.TFRecordWriter(interactions_path) as writer:
       writer.write(
           interaction_pb2.Interaction(

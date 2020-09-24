@@ -19,7 +19,7 @@
 import math
 import re
 import struct
-from typing import Iterable, List, Text, Tuple
+from typing import Iterable, List, Text, Tuple, Union
 import unicodedata
 
 import six
@@ -263,3 +263,8 @@ def find_all_substrings(needle,
   # If needle starts or end with non word character, just \b won't work
   regexp = r"(?:\b|\s)(" + re.escape(needle) + r")(?:\s|\b)"
   return [m.span(1) for m in re.finditer(regexp, haystack)]
+
+
+def filter_invalid_unicode(text):
+  """Return an empty string and True if 'text' is in invalid unicode."""
+  return ("", True) if isinstance(text, bytes) else (text, False)

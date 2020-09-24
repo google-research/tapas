@@ -27,6 +27,32 @@ def classification_initializer():
   return tf.truncated_normal_initializer(stddev=0.02)
 
 
+def compute_token_logits(output_layer, temperature,
+                         init_cell_selection_weights_to_zero):
+  """Computes logits per token.
+
+  Args:
+    output_layer: <float>[batch_size, seq_length, hidden_dim] Output of the
+      encoder layer.
+    temperature: float Temperature for the Bernoulli distribution.
+    init_cell_selection_weights_to_zero: Whether the initial weights should be
+      set to 0. This ensures that all tokens have the same prior probability.
+
+  Returns:
+    <float>[batch_size, seq_length] Logits per token.
+  """
+  hidden_size = output_layer.shape.as_list()[-1]
+  output_weights = tf.get_variable(
+      "output_weights", [hidden_size],
+      initializer=tf.zeros_initializer()
+      if init_cell_selection_weights_to_zero else classification_initializer())
+  output_bias = tf.get_variable(
+      "output_bias", shape=(), initializer=tf.zeros_initializer())
+  logits = (tf.einsum("bsj,j->bs", output_layer, output_weights) +
+            output_bias) / temperature
+  return logits
+
+
 # TODO(eisenjulian): Move more methods from tapas_classifier_model
 def compute_column_logits(output_layer,
                           cell_index,

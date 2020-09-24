@@ -30,7 +30,7 @@ Table = interaction_pb2.Table
 class PredictionUtilsTest(absltest.TestCase):
 
   def test_iterate_interactions(self):
-    filepath = tempfile.mktemp()
+    filepath = tempfile.mktemp(suffix='.tfrecord')
     interactions = [
         interaction_pb2.Interaction(id='dev_723'),
         interaction_pb2.Interaction(id='dev_456'),

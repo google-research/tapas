@@ -47,6 +47,9 @@ class ExperimentUtilsTest(absltest.TestCase):
         all_model_checkpoint_paths=checkpoints)
     with open(os.path.join(test_tmpdir, 'checkpoint'), 'w') as f:
       f.write(text_format.MessageToString(state))
+    for checkpoint in checkpoints:
+      with open(f'{checkpoint}.index', 'w') as f:
+        f.write('\n')
 
     marker_file_prefix = os.path.join(test_tmpdir, 'marker')
     results = list(

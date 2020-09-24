@@ -17,6 +17,7 @@
 
 import ast
 import csv
+import os
 from typing import Any, Iterable, Set, Text, Tuple
 
 import pandas as pd
@@ -36,8 +37,14 @@ def iterate_predictions(prediction_file):
       yield row
 
 
+def is_tfrecord(filename):
+  extension = os.path.splitext(filename)[1]
+  return extension in ['.tfrecord', '.tfrecords']
+
+
 def iterate_interactions(
     interactions_file):
+  """Get interactions from file."""
   for value in tf.python_io.tf_record_iterator(interactions_file):
     interaction = interaction_pb2.Interaction()
     interaction.ParseFromString(value)

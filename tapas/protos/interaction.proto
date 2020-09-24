@@ -95,6 +95,15 @@ message Table {
   // Title or caption of the table.
   optional string caption = 5;
 
+  // The URL the table was found on.
+  optional string document_url = 6;
+
+  // Other versions of the same document that the table occurs on.
+  repeated string alternative_document_urls = 7;
+
+  // Other versions of the same table.
+  repeated string alternative_table_ids = 8;
+
   extensions 10000 to max;
 }
 

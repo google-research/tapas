@@ -41,6 +41,7 @@ def parse_table_examples(
 ):
   """Returns a parse_fn that parses tf.Example in table format."""
 
+
   feature_types = {
       "input_ids":
           tf.FixedLenFeature([max_seq_length], tf.int64),

@@ -19,6 +19,7 @@ import enum
 
 
 class Task(enum.Enum):
+  """Fine-tuning tasks supported by Tapas."""
   SQA = 0
   WTQ = 1
   WIKISQL = 2

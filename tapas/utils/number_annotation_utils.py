@@ -26,7 +26,6 @@ from tapas.utils import number_utils
 from tapas.utils import text_utils
 
 
-MAX_QUESTION_NUMERIC_VALUES = 8
 _PrimitiveNumericValue = Union[
     float, Tuple[Optional[float], Optional[float], Optional[float]]]
 _SortKeyFn = Callable[[interaction_pb2.NumericValue], Tuple[float, Ellipsis]]
@@ -210,6 +209,9 @@ def add_numeric_table_values(table,
   """Parses text in table column-wise and adds the consolidated values.
 
   Consolidation refers to finding values with a common types (date or number).
+  Checks whether a table cell text contains an invalid unicode encoding. If yes,
+  reset the table cell text to an empty str and log a warning for each invalid
+  cell.
 
   Args:
    table: Table to annotate.
@@ -217,11 +219,21 @@ def add_numeric_table_values(table,
      consolidated value.
    debug_info: Additional information used for logging.
   """
-  for row in table.rows:
-    for cell in row.cells:
+  for row_index, row in enumerate(table.rows):
+    for col_index, cell in enumerate(row.cells):
+      cell.text, is_invalid = text_utils.filter_invalid_unicode(cell.text)
+      if is_invalid:
+        logging.warning(
+            'Scrub an invalid table body @ table_id: %s, row_index: %d, '
+            'col_index: %d', table.table_id, row_index, col_index)
       cell.ClearField('numeric_value')
 
   for col_index, column in enumerate(table.columns):
+    column.text, is_invalid = text_utils.filter_invalid_unicode(column.text)
+    if is_invalid:
+      logging.warning(
+          'Scrub an invalid table header @ table_id: %s, col_index: %d',
+          table.table_id, col_index)
     column_values = _consolidate_numeric_values(
         _get_column_values(table, col_index),
         min_consolidation_fraction=min_consolidation_fraction,
