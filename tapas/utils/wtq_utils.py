@@ -92,7 +92,6 @@ def _read_wtq_table(input_dir, wtq_table_id):
         table_in,
         delimiter=',',
         escapechar='\\',
-        encoding='utf-8',
         dtype='str',
     )
 
@@ -122,7 +121,7 @@ def _iterate_examples(
     file_in,
     version,
 ):
-  """Reads examples from CSV file."""
+  """Reads examples from TSV file."""
   if version == Version.V_02:
     for line in file_in:
       fields = line.rstrip().split('\t')
