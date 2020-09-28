@@ -386,7 +386,6 @@ def _train_and_predict(
       allow_empty_column_selection=hparams['allow_empty_column_selection'],
       disable_position_embeddings=False,
       reset_position_index_per_cell=FLAGS.reset_position_index_per_cell)
-
   model_fn = tapas_classifier_model.model_fn_builder(tapas_config)
 
   is_per_host = tf.estimator.tpu.InputPipelineConfig.PER_HOST_V2
@@ -398,7 +397,6 @@ def _train_and_predict(
         zone=tpu_options.tpu_zone,
         project=tpu_options.gcp_project,
     )
-
   run_config = tf.estimator.tpu.RunConfig(
       cluster=tpu_cluster_resolver,
       master=tpu_options.master,
@@ -421,7 +419,6 @@ def _train_and_predict(
       train_batch_size=train_batch_size // gradient_accumulation_steps,
       eval_batch_size=None,
       predict_batch_size=test_batch_size)
-
   if mode == Mode.TRAIN:
     _print('Training')
     bert_config.to_json_file(os.path.join(model_dir, 'bert_config.json'))
@@ -463,6 +460,7 @@ def _train_and_predict(
 
       current_step = int(os.path.basename(checkpoint).split('-')[1])
       _predict(
+          mode,
           estimator,
           task,
           output_dir,
@@ -487,6 +485,7 @@ def _train_and_predict(
 
 
 def _predict(
+    mode,
     estimator,
     task,
     output_dir,
@@ -498,6 +497,9 @@ def _predict(
 ):
   """Writes predictions for dev and test."""
   for test_set in TestSet:
+    if str(test_set)=='TestSet.DEV' and task==tasks.Task.WTQ and  mode == Mode.PREDICT:
+      # print('skip')
+      continue
     _predict_for_set(
         estimator,
         do_model_aggregation,
@@ -580,7 +582,6 @@ def _predict_for_set(
       do_model_classification=False,
       cell_classification_threshold=_CELL_CLASSIFICATION_THRESHOLD)
   tf.io.gfile.copy(prediction_file, other_prediction_file, overwrite=True)
-
 
 def _predict_sequence_for_set(
     estimator,
