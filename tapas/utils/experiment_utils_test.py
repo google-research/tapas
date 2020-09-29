@@ -35,7 +35,7 @@ class ExperimentUtilsTest(absltest.TestCase):
     self.assertEqual(results, [(100, 'path/model.ckpt-100')])
 
   def test_iterate_checkpoints_multi_step(self):
-    test_tmpdir = tempfile.gettempdir()
+    test_tmpdir = tempfile.mkdtemp()
     checkpoints = [
         os.path.join(test_tmpdir, checkpoint) for checkpoint in
         ['model.ckpt-00001', 'model.ckpt-00002', 'model.ckpt-00003']

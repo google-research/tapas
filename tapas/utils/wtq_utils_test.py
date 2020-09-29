@@ -77,7 +77,7 @@ class WtqUtilsTest(absltest.TestCase):
         wtq_utils.convert(input_dir=input_dir, output_dir=output_dir)
 
         table_dir = os.path.join(output_dir, wtq_utils._TABLE_DIR_NAME)
-        self.assertEqual(
+        self.assertCountEqual(
             tf.io.gfile.listdir(output_dir), [
                 'random-split-1-dev.tsv',
                 'random-split-1-train.tsv',
