@@ -290,21 +290,21 @@ def write_predictions(
   """
   with tf.io.gfile.GFile(output_predict_file, "w") as write_file:
     writer = None
+    header = [
+        "question_id",
+        "id",
+        "annotator",
+        "position",
+        "answer_coordinates",
+        "answer",
+        "answer_score",
+    ]
+    if do_model_aggregation:
+      header.extend(["gold_aggr", "pred_aggr"])
+    if do_model_classification:
+      header.extend(["gold_cls", "pred_cls", "logits_cls"])
     for prediction in predictions:
       if writer is None:
-        header = [
-            "question_id",
-            "id",
-            "annotator",
-            "position",
-            "answer_coordinates",
-            "answer",
-            "answer_score",
-        ]
-        if do_model_aggregation:
-          header.extend(["gold_aggr", "pred_aggr"])
-        if do_model_classification:
-          header.extend(["gold_cls", "pred_cls", "logits_cls"])
         writer = csv.DictWriter(write_file, fieldnames=header, delimiter="\t")
         writer.writeheader()
 
@@ -315,3 +315,7 @@ def write_predictions(
           do_model_aggregation=do_model_aggregation,
           writer=writer,
       )
+    # If there are no predictions we should still write the file
+    if writer is None:
+      writer = csv.DictWriter(write_file, fieldnames=header, delimiter="\t")
+      writer.writeheader()
