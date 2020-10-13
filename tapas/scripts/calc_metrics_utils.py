@@ -46,6 +46,8 @@ class Example:
   pred_cell_coo: Set[Tuple[int, int]] = dataclasses.field(default_factory=set)
   pred_agg_function: int = _Answer.NONE
   weight: float = 1.0
+  gold_class_index: Optional[int] = None
+  pred_class_index: Optional[int] = None
 
 
 def read_data_examples_from_interactions(
@@ -75,6 +77,8 @@ def example_from_question(
   gold_agg_function = question.answer.aggregation_function
   float_value = question.answer.float_value if question.answer.HasField(
       'float_value') else None
+  class_index = question.answer.class_index if question.answer.HasField(
+      'class_index') else None
   ex = Example(
       ex_id,
       question_text,
@@ -84,6 +88,7 @@ def example_from_question(
       gold_agg_function,
       float_value,
       has_gold_answer,
+      gold_class_index=class_index,
   )
   return ex
 
@@ -96,6 +101,7 @@ def read_predictions(predictions_path, examples):
     example.pred_cell_coo = prediction_utils.parse_coordinates(
         row['answer_coordinates'])
     example.pred_agg_function = int(row.get('pred_aggr', '0'))
+    example.pred_class_index = int(row.get('pred_cls', '0'))
     if 'column_scores' in row:
       column_scores = list(filter(None, row['column_scores'][1:-1].split(' ')))
       removed_column_scores = [
@@ -431,3 +437,10 @@ def calc_denotation_accuracy(examples,
       denotation_errors_path,
       predictions_file_name,
       add_weights=False)['denotation_accuracy']
+
+
+def calc_classification_accuracy(examples):
+  """Calculates the classification accuracy."""
+  total_correct = sum(1 for example in examples.values()
+                      if example.gold_class_index == example.pred_class_index)
+  return total_correct / len(examples)

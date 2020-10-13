@@ -17,7 +17,7 @@
 
 import functools
 import os
-from typing import Text
+from typing import Text, Optional
 
 from absl import app
 from absl import flags
@@ -90,7 +90,7 @@ flags.DEFINE_bool("do_train", False, "Whether to run training.")
 flags.DEFINE_bool("do_eval", False, "Whether to run eval on the dev set.")
 
 flags.DEFINE_string(
-    "eval_name", "default",
+    "eval_name", None,
     "Name of the current evaluation set. Will be used in Tensorboard.")
 
 flags.DEFINE_bool(
@@ -226,6 +226,7 @@ flags.DEFINE_bool("mask_examples_without_labels", False,
 
 def _predict_and_export_metrics(
     mode,
+    name,
     input_fn,
     estimator,
     current_step,
@@ -238,6 +239,7 @@ def _predict_and_export_metrics(
 
   Args:
     mode: Prediction mode. Can be "predict" or "eval".
+    name: Used as name appendix if not default.
     input_fn: Function to generate exmaples to passed into `estimator.predict`.
     estimator: The Estimator instance.
     current_step: Current checkpoint step to be evaluated.
@@ -267,8 +269,13 @@ def _predict_and_export_metrics(
       input_fn=input_fn,
       checkpoint_path=checkpoint,
   )
+
+  base_name = mode
+  if name:
+    base_name = f"{mode}_{name}"
+
   output_predict_file = os.path.join(output_dir,
-                                     f"{mode}_results_{current_step}.tsv")
+                                     f"{base_name}_results_{current_step}.tsv")
   prediction_utils.write_predictions(result, output_predict_file,
                                      do_model_aggregation,
                                      do_model_classification,
@@ -287,7 +294,8 @@ def _predict_and_export_metrics(
     result_sequence = prediction_utils.compute_prediction_sequence(
         estimator=estimator, examples_by_position=examples_by_position)
     output_predict_file_sequence = os.path.join(
-        FLAGS.model_dir, mode + "_results_sequence_{}.tsv").format(current_step)
+        FLAGS.model_dir,
+        base_name + "_results_sequence_{}.tsv").format(current_step)
     prediction_utils.write_predictions(result_sequence,
                                        output_predict_file_sequence,
                                        do_model_aggregation,
@@ -376,17 +384,18 @@ def main(_):
       add_answer=FLAGS.use_answer_as_supervision,
       include_id=True)
   if FLAGS.do_eval:
+    eval_name = FLAGS.eval_name if FLAGS.eval_name is not None else "default"
     for _, checkpoint in experiment_utils.iterate_checkpoints(
         model_dir=estimator.model_dir,
         total_steps=total_steps,
         marker_file_prefix=os.path.join(estimator.model_dir,
-                                        f"eval_{FLAGS.eval_name}"),
+                                        f"eval_{eval_name}"),
         minutes_to_sleep=FLAGS.minutes_to_sleep_before_predictions):
-      tf.logging.info("Running eval: %s", FLAGS.eval_name)
+      tf.logging.info("Running eval: %s", eval_name)
       result = estimator.evaluate(
           input_fn=eval_input_fn,
           steps=FLAGS.num_eval_steps,
-          name=FLAGS.eval_name,
+          name=eval_name,
           checkpoint_path=checkpoint)
       tf.logging.info("Eval result:\n%s", result)
 
@@ -427,6 +436,7 @@ def main(_):
       if FLAGS.input_file_predict is not None:
         _predict_and_export_metrics(
             mode="predict",
+            name=FLAGS.eval_name,
             input_fn=predict_input_fn,
             output_dir=prediction_output_dir,
             estimator=estimator,
@@ -437,6 +447,7 @@ def main(_):
       if FLAGS.input_file_eval is not None:
         _predict_and_export_metrics(
             mode="eval",
+            name=FLAGS.eval_name,
             input_fn=eval_input_fn,
             output_dir=prediction_output_dir,
             estimator=estimator,

@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # Lint as: python3
-
+import csv
 import os
+import tempfile
 
 from absl import flags
 from absl import logging
@@ -61,15 +62,19 @@ class PredictionUtilsTest(tf.test.TestCase, parameterized.TestCase):
         self.assertIn('input_ids', example)
         self.assertIn('label_ids', example)
 
-  def _generator_kwargs(self):
+  def _generator_kwargs(
+      self,
+      add_aggregation_function_id = False,
+      add_classification_labels = False,
+  ):
     return dict(
         max_seq_length=10,
         max_predictions_per_seq=5,
         task_type=table_dataset.TableTask.CLASSIFICATION,
-        add_aggregation_function_id=False,
-        add_classification_labels=False,
+        add_aggregation_function_id=add_aggregation_function_id,
+        add_classification_labels=add_classification_labels,
         add_answer=False,
-        include_id=False,
+        include_id=True,
         vocab_size=10,
         segment_vocab_size=3,
         num_columns=3,
@@ -80,6 +85,8 @@ class PredictionUtilsTest(tf.test.TestCase, parameterized.TestCase):
   def _create_estimator(
       self,
       span_prediction = _SpanPredictionMode.NONE,
+      num_aggregation_labels = 0,
+      num_classification_labels = 0,
   ):
     # Small bert model for testing.
     bert_config = modeling.BertConfig.from_dict({
@@ -98,8 +105,8 @@ class PredictionUtilsTest(tf.test.TestCase, parameterized.TestCase):
         num_warmup_steps=1,
         use_tpu=False,
         positive_weight=1.0,
-        num_aggregation_labels=0,
-        num_classification_labels=0,
+        num_aggregation_labels=num_aggregation_labels,
+        num_classification_labels=num_classification_labels,
         aggregation_loss_importance=0.0,
         use_answer_as_supervision=False,
         answer_loss_importance=0.0,
@@ -161,9 +168,10 @@ class PredictionUtilsTest(tf.test.TestCase, parameterized.TestCase):
         'span_indexes': np.array([[1, 1], [1, 2], [2, 1]]),
         'span_logits': np.array([-100.0, 10.0, 5.0]),
     }
-    answer = prediction_utils.get_answer_indexes(
+    answer, answer_score = prediction_utils.get_answer_indexes(
         prediction, cell_classification_threshold=0.5)
     self.assertAllEqual(answer, [2, 3])
+    self.assertAllEqual(answer_score, 10.0)
 
   def test_token_selection(self):
     prediction = {
@@ -173,10 +181,11 @@ class PredictionUtilsTest(tf.test.TestCase, parameterized.TestCase):
         'row_ids': np.array([0, 1, 1, 2, 2]),
         'segment_ids': np.array([0, 1, 1, 1, 1]),
     }
-    answer = prediction_utils.get_answer_indexes(
+    answer, answer_score = prediction_utils.get_answer_indexes(
         prediction, cell_classification_threshold=0.49999)
     logging.info(answer)
     self.assertAllEqual(answer, [1, 3])
+    self.assertAllEqual(answer_score, 0.5)
 
   @parameterized.parameters(
       (_SpanPredictionMode.SPAN,),
@@ -188,7 +197,7 @@ class PredictionUtilsTest(tf.test.TestCase, parameterized.TestCase):
 
     def _input_fn(params):
       return table_dataset_test_utils.create_random_dataset(
-          num_examples=_BATCH_SIZE * 2,
+          num_examples=params['batch_size'] * 2,
           batch_size=params['batch_size'],
           repeat=False,
           generator_kwargs=self._generator_kwargs())
@@ -206,6 +215,50 @@ class PredictionUtilsTest(tf.test.TestCase, parameterized.TestCase):
       )
       num_examples += 1
     self.assertEqual(num_examples, _BATCH_SIZE * 2)
+
+  @parameterized.parameters(
+      (_SpanPredictionMode.SPAN, False, False, 0.0),
+      (_SpanPredictionMode.BOUNDARY, False, False, 0.0),
+      (_SpanPredictionMode.NONE, False, False, 0.5),
+      (_SpanPredictionMode.NONE, True, False, 0.5),
+      (_SpanPredictionMode.NONE, False, True, 0.5),
+      (_SpanPredictionMode.NONE, True, True, 0.5),
+  )
+  def test_write_predictions(
+      self,
+      span_prediction,
+      do_model_aggregation,
+      do_model_classification,
+      cell_classification_threshold,
+  ):
+    estimator = self._create_estimator(
+        span_prediction=span_prediction,
+        num_aggregation_labels=2 if do_model_aggregation else 0,
+        num_classification_labels=2 if do_model_classification else 0,
+    )
+
+    def _input_fn(params):
+      return table_dataset_test_utils.create_random_dataset(
+          num_examples=params['batch_size'] * 2,
+          batch_size=params['batch_size'],
+          repeat=False,
+          generator_kwargs=self._generator_kwargs(
+              add_aggregation_function_id=do_model_aggregation,
+              add_classification_labels=do_model_classification,
+          ))
+
+    output_predict_file = tempfile.mktemp()
+    prediction_utils.write_predictions(
+        predictions=estimator.predict(_input_fn),
+        output_predict_file=output_predict_file,
+        do_model_aggregation=do_model_aggregation,
+        do_model_classification=do_model_classification,
+        cell_classification_threshold=cell_classification_threshold,
+    )
+    with open(output_predict_file, 'r') as inputfile:
+      rows = list(csv.DictReader(inputfile, delimiter='\t'))
+    self.assertLen(rows, (_BATCH_SIZE * 2))
+    self.assertIn('question_id', rows[0])
 
 
 if __name__ == '__main__':

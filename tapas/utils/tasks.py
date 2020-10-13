@@ -24,3 +24,4 @@ class Task(enum.Enum):
   WTQ = 1
   WIKISQL = 2
   WIKISQL_SUPERVISED = 3
+  TABFACT = 4

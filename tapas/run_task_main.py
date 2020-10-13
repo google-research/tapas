@@ -326,16 +326,23 @@ def _train_and_predict(
 
   if task == tasks.Task.SQA:
     num_aggregation_labels = 0
-    do_model_aggregation = False
+    num_classification_labels = 0
     use_answer_as_supervision = None
   elif task in [
       tasks.Task.WTQ, tasks.Task.WIKISQL, tasks.Task.WIKISQL_SUPERVISED
   ]:
     num_aggregation_labels = 4
-    do_model_aggregation = True
+    num_classification_labels = 0
     use_answer_as_supervision = task != tasks.Task.WIKISQL_SUPERVISED
+  elif task == tasks.Task.TABFACT:
+    num_classification_labels = 2
+    num_aggregation_labels = 0
+    use_answer_as_supervision = True
   else:
     raise ValueError(f'Unknown task: {task.name}')
+
+  do_model_aggregation = num_aggregation_labels > 0
+  do_model_classification = num_classification_labels > 0
 
   hparams = hparam_utils.get_hparams(task)
   if test_mode:
@@ -361,7 +368,7 @@ def _train_and_predict(
       use_tpu=tpu_options.use_tpu,
       positive_weight=10.0,
       num_aggregation_labels=num_aggregation_labels,
-      num_classification_labels=0,
+      num_classification_labels=num_classification_labels,
       aggregation_loss_importance=1.0,
       use_answer_as_supervision=use_answer_as_supervision,
       answer_loss_importance=1.0,
@@ -436,7 +443,7 @@ def _train_and_predict(
         max_seq_length=FLAGS.max_seq_length,
         max_predictions_per_seq=_MAX_PREDICTIONS_PER_SEQ,
         add_aggregation_function_id=do_model_aggregation,
-        add_classification_labels=False,
+        add_classification_labels=do_model_classification,
         add_answer=use_answer_as_supervision,
         include_id=False,
     )
@@ -468,6 +475,7 @@ def _train_and_predict(
           output_dir,
           model_dir,
           do_model_aggregation,
+          do_model_classification,
           use_answer_as_supervision,
           use_tpu=tapas_config.use_tpu,
           global_step=current_step,
@@ -492,6 +500,7 @@ def _predict(
     output_dir,
     model_dir,
     do_model_aggregation,
+    do_model_classification,
     use_answer_as_supervision,
     use_tpu,
     global_step,
@@ -501,6 +510,7 @@ def _predict(
     _predict_for_set(
         estimator,
         do_model_aggregation,
+        do_model_classification,
         use_answer_as_supervision,
         example_file=_get_test_examples_file(
             task,
@@ -552,6 +562,7 @@ def _predict(
 def _predict_for_set(
     estimator,
     do_model_aggregation,
+    do_model_classification,
     use_answer_as_supervision,
     example_file,
     prediction_file,
@@ -569,7 +580,7 @@ def _predict_for_set(
       max_seq_length=FLAGS.max_seq_length,
       max_predictions_per_seq=_MAX_PREDICTIONS_PER_SEQ,
       add_aggregation_function_id=do_model_aggregation,
-      add_classification_labels=False,
+      add_classification_labels=do_model_classification,
       add_answer=use_answer_as_supervision,
       include_id=False)
   result = estimator.predict(input_fn=predict_input_fn)
@@ -577,7 +588,7 @@ def _predict_for_set(
       result,
       prediction_file,
       do_model_aggregation=do_model_aggregation,
-      do_model_classification=False,
+      do_model_classification=do_model_classification,
       cell_classification_threshold=_CELL_CLASSIFICATION_THRESHOLD)
   tf.io.gfile.copy(prediction_file, other_prediction_file, overwrite=True)
 
@@ -665,33 +676,34 @@ def _eval_for_set(
     global_step,
 ):
   """Computes eval metric from predictions."""
+  if not tf.io.gfile.exists(prediction_file):
+    _warn(f"Can't evaluate for {name} because {prediction_file} doesn't exist.")
+    return
+  test_examples = calc_metrics_utils.read_data_examples_from_interactions(
+      interaction_file)
+  calc_metrics_utils.read_predictions(
+      predictions_path=prediction_file,
+      examples=test_examples,
+  )
   if task in [
       tasks.Task.SQA, tasks.Task.WTQ, tasks.Task.WIKISQL,
       tasks.Task.WIKISQL_SUPERVISED
   ]:
-    if not tf.io.gfile.exists(prediction_file):
-      _warn(
-          f"Can't evaluate for {name} because {prediction_file} doesn't exist.")
-      return
-    test_examples = calc_metrics_utils.read_data_examples_from_interactions(
-        interaction_file)
-    calc_metrics_utils.read_predictions(
-        predictions_path=prediction_file,
-        examples=test_examples,
-    )
     denotation_accuracy = calc_metrics_utils.calc_denotation_accuracy(
         examples=test_examples,
         denotation_errors_path=None,
         predictions_file_name=None,
     )
     _print(f'{name} denotation accuracy: {denotation_accuracy:0.4f}')
+  elif task == tasks.Task.TABFACT:
+    accuracy = calc_metrics_utils.calc_classification_accuracy(test_examples)
+    _print(f'{name} accuracy: {accuracy:0.4f}')
   else:
     raise ValueError(f'Unknown task: {task.name}')
 
 
 def _check_options(output_dir, task, mode):
   """Checks against some invalid options so we can fail fast."""
-
 
   if mode == Mode.CREATE_DATA:
     return

@@ -22,6 +22,7 @@ import time
 from typing import Iterable, Optional, Text, Tuple, Mapping
 
 from absl import flags
+from absl import logging
 from tapas.models.bert import modeling
 import tensorflow.compat.v1 as tf
 
@@ -238,6 +239,7 @@ def save_metrics(
 ):
   """Save metrics to file."""
   metric_file_path = os.path.join(model_dir, f"{mode}_metrics_{step}.json")
+  logging.info("Writing metrics to: %s", metric_file_path)
   with tf.io.gfile.GFile(metric_file_path, "w") as f:
     metrics = dict(metrics, step=step)
     f.write(json.dumps(metrics, indent=2, sort_keys=True) + "\n")

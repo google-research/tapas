@@ -35,6 +35,10 @@ def get_wikisql_hparams():
   return get_hparams(tasks.Task.WIKISQL)
 
 
+def get_tabfact_hparams():
+  return get_hparams(tasks.Task.TABFACT)
+
+
 def get_hparams(task):
   """Gets hpraram dictionary for a given tasks."""
   if task == tasks.Task.SQA:
@@ -87,6 +91,21 @@ def get_hparams(task):
         'allow_empty_column_selection': True,
         'temperature': 0.763141,
         'warmup_ratio': 0.168479,
+    })
+  elif task == tasks.Task.TABFACT:
+    params.update({
+        'disable_per_token_loss': True,
+        'num_classification_labels': 2,
+        'learning_rate': 2e-5,
+        'warmup_ratio': 0.05,
+        'num_aggregation_labels': 0,
+        'num_train_examples': 80000 * 512,
+        'bert_config_attention_probs_dropout_prob': 0.0,
+        'bert_config_hidden_dropout_prob': 0.07,
+        'compute_denotation_accuracy': False,
+        'init_cell_selection_weights_to_zero': False,
+        'select_one_column': False,
+        'allow_empty_column_selection': False,
     })
   else:
     raise ValueError(f'Unknown task: {task.name}')

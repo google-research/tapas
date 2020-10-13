@@ -22,6 +22,7 @@ from typing import Mapping, Text, Iterable
 from tapas.protos import interaction_pb2
 from tapas.utils import interaction_utils_parser
 from tapas.utils import sqa_utils
+from tapas.utils import tabfact_utils
 from tapas.utils import tasks
 from tapas.utils import wikisql_utils
 from tapas.utils import wtq_utils
@@ -50,7 +51,9 @@ def _to_tfrecord(
 
 
 def get_train_filename(task):
-  if task in [tasks.Task.WIKISQL, tasks.Task.WIKISQL_SUPERVISED]:
+  if task in [
+      tasks.Task.WIKISQL, tasks.Task.WIKISQL_SUPERVISED, tasks.Task.TABFACT
+  ]:
     return 'train'
   if task in [tasks.Task.SQA, tasks.Task.WTQ]:
     return 'random-split-1-train'
@@ -58,7 +61,9 @@ def get_train_filename(task):
 
 
 def get_dev_filename(task):
-  if task in [tasks.Task.WIKISQL, tasks.Task.WIKISQL_SUPERVISED]:
+  if task in [
+      tasks.Task.WIKISQL, tasks.Task.WIKISQL_SUPERVISED, tasks.Task.TABFACT
+  ]:
     return 'dev'
   if task in [tasks.Task.SQA, tasks.Task.WTQ]:
     return 'random-split-1-dev'
@@ -68,7 +73,7 @@ def get_dev_filename(task):
 def get_test_filename(task):
   if task in [
       tasks.Task.WIKISQL, tasks.Task.WIKISQL_SUPERVISED, tasks.Task.SQA,
-      tasks.Task.WTQ
+      tasks.Task.WTQ, tasks.Task.TABFACT
   ]:
     return 'test'
   raise ValueError(f'Unknown task: {task.name}')
@@ -87,6 +92,7 @@ def get_supervision_modes(task):
   if task in [
       tasks.Task.SQA,
       tasks.Task.WIKISQL_SUPERVISED,
+      tasks.Task.TABFACT,
   ]:
     return collections.defaultdict(lambda: _Mode.NONE)
   raise ValueError(f'Unknown task: {task.name}')
@@ -115,6 +121,9 @@ def create_interactions(task, input_dir,
   elif task == tasks.Task.WIKISQL_SUPERVISED:
     wikisql_utils.convert(input_dir, output_dir)
     tsv_dir = output_dir
+  elif task == tasks.Task.TABFACT:
+    _to_tfrecord(tabfact_utils.convert(input_dir), output_dir)
+    return
   else:
     raise ValueError(f'Unknown task: {task.name}')
   sqa_utils.create_interactions(

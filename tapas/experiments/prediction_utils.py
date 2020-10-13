@@ -18,7 +18,7 @@
 import collections
 import copy
 import csv
-from typing import Mapping, Text, Tuple, Iterable
+from typing import Mapping, Text, Tuple, Iterable, List
 
 from absl import logging
 import numpy as np
@@ -139,7 +139,7 @@ def compute_prediction_sequence(estimator, examples_by_position):
 def _get_question_id(features):
   """Restores question id from int sequence."""
   if "question_id_ints" in features:
-    question_id = text_utils.ints_to_str(features["question_id_ints"])
+    question_id = text_utils.ints_to_str(list(features["question_id_ints"]))
     if question_id:
       return question_id
   # TODO Remove once the data has been updated.
@@ -170,6 +170,11 @@ def get_mean_cell_probs(prediction):
   }
 
 
+def _geometric_mean(values):
+  """Computes geometric mean, assumes all values > 0."""
+  return np.exp(np.mean(np.log(values)))
+
+
 def get_answer_indexes(
     prediction,
     cell_classification_threshold,
@@ -188,13 +193,80 @@ def get_answer_indexes(
         best_span,
         best_logit,
     )
-    return [input_ids[i] for i in range(best_span[0], best_span[1] + 1)]
+    indexes = [input_ids[i] for i in range(best_span[0], best_span[1] + 1)]
+    return indexes, best_logit
 
   answers = []
+  answer_probs = []
   for i, prob in get_cell_token_probs(prediction):
     if prob > cell_classification_threshold:
       answers.append(input_ids[i])
-  return answers
+      answer_probs.append(prob)
+  return answers, _geometric_mean(answer_probs)
+
+
+def _write_prediction(
+    prediction,
+    cell_classification_threshold,
+    do_model_aggregation,
+    do_model_classification,
+    writer,
+):
+  """Writes a single prediction to TSV."""
+  question_id = _get_question_id(prediction)
+  max_width = prediction["column_ids"].max()
+  max_height = prediction["row_ids"].max()
+
+  for key, value in prediction.items():
+    logging.info("key: %s", key)
+    logging.info("value type: %s", type(value))
+    logging.info("value: %s", value)
+
+  if (max_width == 0 and max_height == 0 and
+      question_id == text_utils.get_padded_question_id()):
+    logging.info("Removing padded example: %s", question_id)
+    return
+
+  cell_coords_to_prob = get_mean_cell_probs(prediction)
+
+  answer_indexes, answer_score = get_answer_indexes(
+      prediction,
+      cell_classification_threshold,
+  )
+
+  # Select the answers above a classification threshold.
+  answer_coordinates = []
+  for col in range(max_width):
+    for row in range(max_height):
+      cell_prob = cell_coords_to_prob.get((col, row), None)
+      if cell_prob is not None:
+        if cell_prob > cell_classification_threshold:
+          answer_coordinates.append(str((row, col)))
+
+  try:
+    example_id, annotator, position = text_utils.parse_question_id(question_id)
+    position = str(position)
+  except ValueError:
+    example_id = "_"
+    annotator = "_"
+    position = "_"
+  prediction_to_write = {
+      "question_id": question_id,
+      "id": example_id,
+      "annotator": annotator,
+      "position": position,
+      "answer_coordinates": str(answer_coordinates),
+      "answer": str(answer_indexes),
+      "answer_score": str(answer_score),
+  }
+  if do_model_aggregation:
+    prediction_to_write["gold_aggr"] = str(prediction["gold_aggr"][0])
+    prediction_to_write["pred_aggr"] = str(prediction["pred_aggr"])
+  if do_model_classification:
+    prediction_to_write["gold_cls"] = str(prediction["gold_cls"][0])
+    prediction_to_write["pred_cls"] = str(prediction["pred_cls"])
+    prediction_to_write["logits_cls"] = str(prediction["logits_cls"])
+  writer.writerow(prediction_to_write)
 
 
 def write_predictions(
@@ -217,68 +289,29 @@ def write_predictions(
     cell_classification_threshold: Threshold for selecting a cell.
   """
   with tf.io.gfile.GFile(output_predict_file, "w") as write_file:
-    header = [
-        "question_id",
-        "id",
-        "annotator",
-        "position",
-        "answer_coordinates",
-        "answer",
-    ]
-    if do_model_aggregation:
-      header.extend(["gold_aggr", "pred_aggr"])
-    if do_model_classification:
-      header.extend(["gold_cls", "pred_cls", "logits_cls"])
-    writer = csv.DictWriter(write_file, fieldnames=header, delimiter="\t")
-    writer.writeheader()
-
+    writer = None
     for prediction in predictions:
-      question_id = _get_question_id(prediction)
-      max_width = prediction["column_ids"].max()
-      max_height = prediction["row_ids"].max()
+      if writer is None:
+        header = [
+            "question_id",
+            "id",
+            "annotator",
+            "position",
+            "answer_coordinates",
+            "answer",
+            "answer_score",
+        ]
+        if do_model_aggregation:
+          header.extend(["gold_aggr", "pred_aggr"])
+        if do_model_classification:
+          header.extend(["gold_cls", "pred_cls", "logits_cls"])
+        writer = csv.DictWriter(write_file, fieldnames=header, delimiter="\t")
+        writer.writeheader()
 
-      if (max_width == 0 and max_height == 0 and
-          question_id == text_utils.get_padded_question_id()):
-        logging.info("Removing padded example: %s", question_id)
-        continue
-
-      cell_coords_to_prob = get_mean_cell_probs(prediction)
-
-      answer_indexes = get_answer_indexes(
+      _write_prediction(
           prediction,
-          cell_classification_threshold,
+          cell_classification_threshold=cell_classification_threshold,
+          do_model_classification=do_model_classification,
+          do_model_aggregation=do_model_aggregation,
+          writer=writer,
       )
-
-      # Select the answers above a classification threshold.
-      answer_coordinates = []
-      for col in range(max_width):
-        for row in range(max_height):
-          cell_prob = cell_coords_to_prob.get((col, row), None)
-          if cell_prob is not None:
-            if cell_prob > cell_classification_threshold:
-              answer_coordinates.append(str((row, col)))
-
-      try:
-        example_id, annotator, position = text_utils.parse_question_id(
-            question_id)
-        position = str(position)
-      except ValueError:
-        example_id = "_"
-        annotator = "_"
-        position = "_"
-      prediction_to_write = {
-          "question_id": question_id,
-          "id": example_id,
-          "annotator": annotator,
-          "position": position,
-          "answer_coordinates": str(answer_coordinates),
-          "answer": str(answer_indexes),
-      }
-      if do_model_aggregation:
-        prediction_to_write["gold_aggr"] = str(prediction["gold_aggr"][0])
-        prediction_to_write["pred_aggr"] = str(prediction["pred_aggr"])
-      if do_model_classification:
-        prediction_to_write["gold_cls"] = str(prediction["gold_cls"][0])
-        prediction_to_write["pred_cls"] = str(prediction["pred_cls"])
-        prediction_to_write["logits_cls"] = str(prediction["logits_cls"])
-      writer.writerow(prediction_to_write)
