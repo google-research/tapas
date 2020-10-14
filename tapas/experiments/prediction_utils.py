@@ -217,11 +217,6 @@ def _write_prediction(
   max_width = prediction["column_ids"].max()
   max_height = prediction["row_ids"].max()
 
-  for key, value in prediction.items():
-    logging.info("key: %s", key)
-    logging.info("value type: %s", type(value))
-    logging.info("value: %s", value)
-
   if (max_width == 0 and max_height == 0 and
       question_id == text_utils.get_padded_question_id()):
     logging.info("Removing padded example: %s", question_id)
