@@ -86,13 +86,22 @@ def get_test_filename(task):
 def get_supervision_modes(task):
   """Gets the correct supervision mode for each task."""
   if task == tasks.Task.WIKISQL:
+    # We tried using REMOVE_ALL_STRICT but didn't find it to improve results.
     return {
         'train.tsv': _Mode.REMOVE_ALL,
         'dev.tsv': _Mode.NONE,
         'test.tsv': _Mode.NONE
     }
   if task == tasks.Task.WTQ:
-    return collections.defaultdict(lambda: _Mode.REMOVE_ALL)
+    # Remove ambiguous examples at training time.
+    # (Examples where the answer occurs in multiple cells.)
+    modes = {}
+    modes['train.tsv'] = _Mode.REMOVE_ALL_STRICT
+    modes['test.tsv'] = _Mode.REMOVE_ALL
+    for i in range(1, 5 + 1):
+      modes[f'random-split-{i}-train.tsv'] = _Mode.REMOVE_ALL_STRICT
+      modes[f'random-split-{i}-dev.tsv'] = _Mode.REMOVE_ALL
+    return modes
   if task in [
       tasks.Task.SQA,
       tasks.Task.WIKISQL_SUPERVISED,

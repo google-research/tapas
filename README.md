@@ -6,8 +6,12 @@ in the paper [TAPAS: Weakly Supervised Table Parsing via Pre-training](#how-to-c
 ## News
 
 #### 2020/10/19
- * Added option to filter table columns based on textual overlap with the sentence
- using the **HEM** method described in section 3.3 of
+ * Small change to WTQ training example creation
+   * Questions with ambiguous cell matches will now be discarded
+   * This improves denotation accuracy by ~1 point
+   * For more details see [this issue](https://github.com/google-research/tapas/issues/73).
+ * Added option to filter table columns by textual overlap with question
+   * Based on the **HEM** method described in section 3.3 of
  [Understanding tables with intermediate pre-training](https://arxiv.org/abs/2010.00571).
 
 #### 2020/10/09

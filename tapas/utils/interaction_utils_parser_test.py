@@ -255,6 +255,35 @@ class InteractionUtilsParserTest(parameterized.TestCase):
     _set_float32_safe_answer(expected_answer)
     self.assertEqual(expected_answer, question.answer)
 
+  def test_set_answer_text_strict(self):
+    interaction = text_format.Parse(
+        """
+      table {
+        columns { text: "Year" }
+        rows { cells { text: "2008" } }
+        rows { cells { text: "2010" } }
+        rows { cells { text: "2008" } }
+      }
+      questions {
+        answer {
+          answer_texts: "2008"
+        }
+      }""", interaction_pb2.Interaction())
+
+    try:
+      result = interaction_utils_parser.parse_question(
+          interaction.table,
+          interaction.questions[0],
+          _Mode.REMOVE_ALL_STRICT,
+      )
+    except ValueError as error:
+      result = str(error)
+    self.assertEqual(
+        result,
+        "Cannot parse answer: "
+        "[answer_coordinates: Found multiple cells for answers]",
+    )
+
 
 if __name__ == "__main__":
   absltest.main()

@@ -23,7 +23,7 @@ since they are used as counter names in a BEAM pipeline.
 """
 
 import enum
-from typing import Callable, List, Text
+from typing import Callable, List, Text, Optional
 
 import frozendict
 import numpy as np
@@ -38,6 +38,9 @@ class SupervisionMode(enum.Enum):
   # Remove all the supervised signals and recompute them by parsing answer
   # texts.
   REMOVE_ALL = 2
+  # Same as above but discard ambiguous examples
+  # (where an answer matches multiple cells).
+  REMOVE_ALL_STRICT = 3
 
 
 def _find_matching_coordinates(table, answer_text,
@@ -49,9 +52,12 @@ def _find_matching_coordinates(table, answer_text,
         yield (row_index, column_index)
 
 
-def _compute_cost_matrix_inner(table,
-                               answer,
-                               normalize):
+def _compute_cost_matrix_inner(
+    table,
+    answer,
+    normalize,
+    discard_ambiguous_examples,
+):
   """Returns a cost matrix M where the value M[i,j] contains a matching cost from answer i to cell j.
 
   The matrix is a binary matrix and -1 is used to indicate a possible match from
@@ -63,6 +69,7 @@ def _compute_cost_matrix_inner(table,
     table: a Table message.
     answer: an Answer message.
     normalize: a function that normalizes a string.
+    discard_ambiguous_examples: If true discard if answer has multiple matches.
 
   Raises:
     ValueError if:
@@ -79,15 +86,17 @@ def _compute_cost_matrix_inner(table,
   cost_matrix = np.zeros((len(answer.answer_texts), num_cells))
 
   for index, answer_text in enumerate(answer.answer_texts):
-    found = False
+    found = 0
     for row, column in _find_matching_coordinates(table, answer_text,
                                                   normalize):
-      found = True
+      found += 1
       cost_matrix[index, (row * len(table.columns)) + column] = -1
       num_candidates[row, column] += 1
       max_candidates = max(max_candidates, num_candidates[row, column])
-    if not found:
-      raise ValueError("Can't find text in table")
+    if found == 0:
+      return None
+    if discard_ambiguous_examples and found > 1:
+      raise ValueError("Found multiple cells for answers")
 
   # TODO(piccinno): Shall we allow ambiguous assignments?
   if max_candidates > 1:
@@ -96,28 +105,50 @@ def _compute_cost_matrix_inner(table,
   return cost_matrix
 
 
-def _compute_cost_matrix(table,
-                         answer):
+def _compute_cost_matrix(
+    table,
+    answer,
+    discard_ambiguous_examples,
+):
+  """Computes cost matrix."""
   for index, normalize_fn in enumerate(text_utils.STRING_NORMALIZATIONS):
     try:
-      return _compute_cost_matrix_inner(table, answer, normalize_fn)
+      result = _compute_cost_matrix_inner(
+          table,
+          answer,
+          normalize_fn,
+          discard_ambiguous_examples,
+      )
+      if result is None:
+        continue
+      return result
     except ValueError:
       if index == len(text_utils.STRING_NORMALIZATIONS) - 1:
         raise
+  return None
 
 
 def _parse_answer_coordinates(table,
-                              answer):
+                              answer,
+                              discard_ambiguous_examples):
   """Populates answer_coordinates using answer_texts.
 
   Args:
     table: a Table message, needed to compute the answer coordinates.
     answer: an Answer message that will be modified on success.
+    discard_ambiguous_examples: If true discard if answer has multiple matches.
 
   Raises:
     ValueError if the conversion fails.
   """
-  cost_matrix = _compute_cost_matrix(table, answer)
+  del answer.answer_coordinates[:]
+  cost_matrix = _compute_cost_matrix(
+      table,
+      answer,
+      discard_ambiguous_examples,
+  )
+  if cost_matrix is None:
+    return
   row_indices, column_indices = scipy.optimize.linear_sum_assignment(
       cost_matrix)
   for _ in row_indices:
@@ -152,9 +183,12 @@ def _has_single_float_answer_equal_to(question,
     return False
 
 
-def _parse_question(table,
-                    original_question,
-                    clear_fields):
+def _parse_question(
+    table,
+    original_question,
+    clear_fields,
+    discard_ambiguous_examples,
+):
   """Parses question's answer_texts fields to possibly populate additional fields.
 
   Args:
@@ -162,6 +196,7 @@ def _parse_question(table,
     original_question: a Question message containing answer_texts.
     clear_fields: A list of strings indicating which fields need to be cleared
       and possibly repopulated.
+    discard_ambiguous_examples: If true, discard ambiguous examples.
 
   Returns:
     A Question message with answer_coordinates or float_value field populated.
@@ -194,12 +229,17 @@ def _parse_question(table,
     question.answer.ClearField(field_name)
 
   error_message = ""
-
   if not question.answer.answer_coordinates:
     try:
-      _parse_answer_coordinates(table, question.answer)
+      _parse_answer_coordinates(
+          table,
+          question.answer,
+          discard_ambiguous_examples,
+      )
     except ValueError as exc:
       error_message += "[answer_coordinates: {}]".format(str(exc))
+      if discard_ambiguous_examples:
+        raise ValueError(f"Cannot parse answer: {error_message}")
 
   if not question.answer.HasField("float_value"):
     try:
@@ -219,6 +259,9 @@ def _parse_question(table,
 # the proto.
 _CLEAR_FIELDS = frozendict.frozendict({
     SupervisionMode.REMOVE_ALL: [
+        "answer_coordinates", "float_value", "aggregation_function"
+    ],
+    SupervisionMode.REMOVE_ALL_STRICT: [
         "answer_coordinates", "float_value", "aggregation_function"
     ]
 })
@@ -247,4 +290,9 @@ def parse_question(table,
   if clear_fields is None:
     raise ValueError(f"Mode {mode.name} is not supported")
 
-  return _parse_question(table, question, clear_fields)
+  return _parse_question(
+      table,
+      question,
+      clear_fields,
+      discard_ambiguous_examples=mode == SupervisionMode.REMOVE_ALL_STRICT,
+  )
