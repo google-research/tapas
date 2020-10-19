@@ -21,6 +21,7 @@ import tempfile
 from absl import logging
 from absl.testing import absltest
 from tapas.protos import interaction_pb2
+from tapas.protos import table_selection_pb2
 from tapas.utils import number_annotation_utils
 from tapas.utils import text_utils
 from tapas.utils import tf_example_utils
@@ -277,6 +278,72 @@ class TfExampleUtilsTest(absltest.TestCase):
       self.assertEqual(
           _get_int_feature(example, 'numeric_relations'),
           [0, 0, 0, 0, 0, 0, 4, 2, 2, 4, 2, 2])
+
+  def test_convert_with_token_selection(self):
+    max_seq_length = 12
+    with tempfile.TemporaryDirectory() as input_dir:
+      vocab_file = os.path.join(input_dir, 'vocab.txt')
+      _create_vocab(vocab_file, range(10))
+      converter = tf_example_utils.ToClassifierTensorflowExample(
+          config=tf_example_utils.ClassifierConversionConfig(
+              vocab_file=vocab_file,
+              max_seq_length=max_seq_length,
+              max_column_id=max_seq_length,
+              max_row_id=max_seq_length,
+              strip_column_names=False,
+              add_aggregation_candidates=False,
+          ))
+      interaction = interaction_pb2.Interaction(
+          table=interaction_pb2.Table(
+              columns=[
+                  interaction_pb2.Cell(text='A'),
+                  interaction_pb2.Cell(text='B'),
+                  interaction_pb2.Cell(text='C'),
+              ],
+              rows=[
+                  interaction_pb2.Cells(cells=[
+                      interaction_pb2.Cell(text='0 6'),
+                      interaction_pb2.Cell(text='4 7'),
+                      interaction_pb2.Cell(text='5 6'),
+                  ]),
+                  interaction_pb2.Cells(cells=[
+                      interaction_pb2.Cell(text='1 7'),
+                      interaction_pb2.Cell(text='3 6'),
+                      interaction_pb2.Cell(text='5 5'),
+                  ]),
+              ],
+          ),
+          questions=[interaction_pb2.Question(id='id', original_text='2')],
+      )
+      table_coordinates = []
+      for r, c, t in [(0, 0, 0), (1, 0, 0), (1, 2, 0), (2, 0, 0), (2, 2, 0),
+                      (2, 2, 1)]:
+        table_coordinates.append(
+            table_selection_pb2.TableSelection.TokenCoordinates(
+                row_index=r, column_index=c, token_index=t))
+      interaction.questions[0].Extensions[
+          table_selection_pb2.TableSelection.table_selection_ext].CopyFrom(
+              table_selection_pb2.TableSelection(
+                  selected_tokens=table_coordinates))
+
+      number_annotation_utils.add_numeric_values(interaction)
+      example = converter.convert(interaction, 0)
+      logging.info(example)
+      self.assertEqual(
+          _get_int_feature(example, 'input_ids'),
+          [2, 8, 3, 1, 6, 11, 7, 11, 11, 0, 0, 0])
+      self.assertEqual(
+          _get_int_feature(example, 'row_ids'),
+          [0, 0, 0, 0, 1, 1, 2, 2, 2, 0, 0, 0])
+      self.assertEqual(
+          _get_int_feature(example, 'column_ids'),
+          [0, 0, 0, 1, 1, 3, 1, 3, 3, 0, 0, 0])
+      self.assertEqual(
+          _get_int_feature(example, 'column_ranks'),
+          [0, 0, 0, 0, 1, 1, 2, 1, 1, 0, 0, 0])
+      self.assertEqual(
+          _get_int_feature(example, 'numeric_relations'),
+          [0, 0, 0, 0, 4, 2, 4, 2, 2, 0, 0, 0])
 
 if __name__ == '__main__':
   absltest.main()

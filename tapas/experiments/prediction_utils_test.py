@@ -167,11 +167,63 @@ class PredictionUtilsTest(tf.test.TestCase, parameterized.TestCase):
         'input_ids': np.array([1, 2, 3, 4]),
         'span_indexes': np.array([[1, 1], [1, 2], [2, 1]]),
         'span_logits': np.array([-100.0, 10.0, 5.0]),
+        'column_ids': np.array([1, 1, 1, 1]),
+        'row_ids': np.array([1, 1, 1, 1]),
     }
-    answer, answer_score = prediction_utils.get_answer_indexes(
+    answers = prediction_utils._get_token_answers(
         prediction, cell_classification_threshold=0.5)
-    self.assertAllEqual(answer, [2, 3])
-    self.assertAllEqual(answer_score, 10.0)
+    self.assertEqual(answers, [
+        prediction_utils.TokenAnswer(
+            column_index=0,
+            row_index=0,
+            begin_token_index=1,
+            end_token_index=3,
+            token_ids=[2, 3],
+            score=10.0,
+        )
+    ])
+
+  def test_span_selection_with_column_boundary(self):
+    prediction = {
+        'input_ids': np.array([1, 2, 3, 4]),
+        'span_indexes': np.array([[1, 1], [1, 2], [2, 1]]),
+        'span_logits': np.array([-100.0, 10.0, 5.0]),
+        'column_ids': np.array([1, 2, 2, 2]),
+        'row_ids': np.array([2, 2, 2, 2]),
+    }
+    answers = prediction_utils._get_token_answers(
+        prediction, cell_classification_threshold=0.5)
+    self.assertEqual(answers, [
+        prediction_utils.TokenAnswer(
+            column_index=1,
+            row_index=1,
+            begin_token_index=0,
+            end_token_index=2,
+            token_ids=[2, 3],
+            score=10.0,
+        )
+    ])
+
+  def test_span_selection_with_row_boundary(self):
+    prediction = {
+        'input_ids': np.array([1, 2, 3, 4]),
+        'span_indexes': np.array([[1, 1], [1, 2], [2, 1]]),
+        'span_logits': np.array([-100.0, 10.0, 5.0]),
+        'column_ids': np.array([2, 2, 2, 2]),
+        'row_ids': np.array([1, 2, 2, 2]),
+    }
+    answers = prediction_utils._get_token_answers(
+        prediction, cell_classification_threshold=0.5)
+    self.assertEqual(answers, [
+        prediction_utils.TokenAnswer(
+            column_index=1,
+            row_index=1,
+            begin_token_index=0,
+            end_token_index=2,
+            token_ids=[2, 3],
+            score=10.0,
+        )
+    ])
 
   def test_token_selection(self):
     prediction = {
@@ -181,11 +233,27 @@ class PredictionUtilsTest(tf.test.TestCase, parameterized.TestCase):
         'row_ids': np.array([0, 1, 1, 2, 2]),
         'segment_ids': np.array([0, 1, 1, 1, 1]),
     }
-    answer, answer_score = prediction_utils.get_answer_indexes(
-        prediction, cell_classification_threshold=0.49999)
-    logging.info(answer)
-    self.assertAllEqual(answer, [1, 3])
-    self.assertAllEqual(answer_score, 0.5)
+    answers = prediction_utils._get_token_answers(
+        prediction,
+        cell_classification_threshold=0.49999,
+    )
+    logging.info(answers)
+    self.assertEqual(answers, [
+        prediction_utils.TokenAnswer(
+            column_index=0,
+            row_index=0,
+            begin_token_index=0,
+            end_token_index=1,
+            token_ids=[1],
+            score=0.5),
+        prediction_utils.TokenAnswer(
+            column_index=2,
+            row_index=1,
+            begin_token_index=0,
+            end_token_index=1,
+            token_ids=[3],
+            score=0.5),
+    ])
 
   @parameterized.parameters(
       (_SpanPredictionMode.SPAN,),
@@ -209,7 +277,7 @@ class PredictionUtilsTest(tf.test.TestCase, parameterized.TestCase):
         self.assertIn('span_logits', prediction)
         self.assertIn('span_indexes', prediction)
       logging.info('prediction: %s', prediction)
-      _ = prediction_utils.get_answer_indexes(
+      _ = prediction_utils._get_token_answers(
           prediction,
           cell_classification_threshold=0.5,
       )

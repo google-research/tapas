@@ -22,7 +22,9 @@ import struct
 from typing import Iterable, List, Text, Tuple, Union
 import unicodedata
 
+from absl import logging
 import six
+from tapas.protos import interaction_pb2
 from tapas.utils import constants
 
 
@@ -268,3 +270,29 @@ def find_all_substrings(needle,
 def filter_invalid_unicode(text):
   """Return an empty string and True if 'text' is in invalid unicode."""
   return ("", True) if isinstance(text, bytes) else (text, False)
+
+
+def filter_invalid_unicode_from_table(table):
+  """Removes invalid unicode from table.
+
+  Checks whether a table cell text contains an invalid unicode encoding. If yes,
+  reset the table cell text to an empty str and log a warning for each invalid
+  cell.
+
+  Args:
+    table: table to clean.
+  """
+  for row_index, row in enumerate(table.rows):
+    for col_index, cell in enumerate(row.cells):
+      cell.text, is_invalid = filter_invalid_unicode(cell.text)
+      if is_invalid:
+        logging.warning(
+            "Scrub an invalid table body @ table_id: %s, row_index: %d, "
+            "col_index: %d", table.table_id, row_index, col_index)
+
+  for col_index, column in enumerate(table.columns):
+    column.text, is_invalid = filter_invalid_unicode(column.text)
+    if is_invalid:
+      logging.warning(
+          "Scrub an invalid table header @ table_id: %s, col_index: %d",
+          table.table_id, col_index)

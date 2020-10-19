@@ -23,6 +23,7 @@ from typing import Iterable, List, Mapping, Optional, Text, Tuple
 from absl import logging
 import dataclasses
 from tapas.protos import interaction_pb2
+from tapas.protos import table_selection_pb2
 from tapas.utils import constants
 from tapas.utils import interpretation_utils
 from tapas.utils import number_annotation_utils
@@ -107,6 +108,7 @@ class PretrainConversionConfig(ConversionConfig):
   strip_column_names: If true, add empty strings instead of column names.
   random_seed: Random seed.
   masked_lm_prob: Percentage of tokens to mask.
+  concatenate_snippets: If true concatenate snippets in a random fashion.
   """
   max_predictions_per_seq: int
   masked_lm_prob: float
@@ -114,6 +116,7 @@ class PretrainConversionConfig(ConversionConfig):
   min_question_length: int
   max_question_length: int
   always_continue_cells: bool
+  concatenate_snippets: bool = True
 
 
 @dataclasses.dataclass(frozen=True)
@@ -716,6 +719,7 @@ class ToPretrainingTensorflowExample(ToTensorflowExampleBase):
     self._masked_lm_prob = config.masked_lm_prob
     self._min_question_length = config.min_question_length
     self._max_question_length = config.max_question_length
+    self._concatenate_snippets = config.concatenate_snippets
     self._always_continue_cells = config.always_continue_cells
     self._question_buckets = [
         self._min_question_length,
@@ -894,6 +898,16 @@ class ToPretrainingTensorflowExample(ToTensorflowExampleBase):
     """Randomly gets a snippet of relevant text."""
     questions = [q.text for q in interaction.questions]
     rng.shuffle(questions)
+    if not self._concatenate_snippets:
+      # Find the first snippet that satisfies the requirements.
+      for question in questions:
+        tokens = self._tokenizer.tokenize(question)
+        if len(tokens) > self._max_question_length:
+          continue
+        if len(tokens) < self._min_question_length:
+          continue
+        return tokens
+      return None
     tokens = []
     for question in questions:
       tokens += self._tokenizer.tokenize(question)
@@ -1085,6 +1099,18 @@ class ToClassifierTensorflowExample(ToTrimmedTensorflowExample):
 
     text_tokens = self._tokenize_extended_question(question, table)
     tokenized_table = self._tokenize_table(table)
+    table_selection_ext = table_selection_pb2.TableSelection.table_selection_ext
+    if table_selection_ext in question.Extensions:
+      table_selection = question.Extensions[table_selection_ext]
+      if not tokenized_table.selected_tokens:
+        raise ValueError('No tokens selected')
+      if table_selection.selected_tokens:
+        selected_tokens = {(t.row_index, t.column_index, t.token_index)
+                           for t in table_selection.selected_tokens}
+        tokenized_table.selected_tokens = [
+            t for t in tokenized_table.selected_tokens
+            if (t.row_index, t.column_index, t.token_index) in selected_tokens
+        ]
 
     serialized_example, features = self._to_trimmed_features(
         question=question,

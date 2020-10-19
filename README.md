@@ -5,6 +5,11 @@ in the paper [TAPAS: Weakly Supervised Table Parsing via Pre-training](#how-to-c
 
 ## News
 
+#### 2020/10/19
+ * Added option to filter table columns based on textual overlap with the sentence
+ using the **HEM** method described in section 3.3 of
+ [Understanding tables with intermediate pre-training](https://arxiv.org/abs/2010.00571).
+
 #### 2020/10/09
  * Released code & models to run TAPAS on [TabFact](https://tabfact.github.io/) for table entailment, companion for the EMNLP 2020 Findings paper [Understanding tables with intermediate pre-training](https://arxiv.org/abs/2010.00571).
  * Added a [colab](http://tiny.cc/tapas-tabfact-colab) to try predictions on TabFact
@@ -332,6 +337,11 @@ python3 tapas/run_task_main.py \
   --bert_vocab_file="${tapas_data_dir}/vocab.txt" \
   --mode="create_data"
 ```
+
+Optionally, to handle big tables, we can add a `--prune_columns` flag to
+apply the **HEM** method described section 3.3 of our
+[paper](https://arxiv.org/abs/2010.00571) to discard some columns based on
+textual overlap with the sentence.
 
 Afterwards, training can be started by running:
 

@@ -17,10 +17,11 @@
 
 import collections
 import os
-from typing import Mapping, Text, Iterable
+from typing import Mapping, Text, Iterable, Optional
 
 from tapas.protos import interaction_pb2
 from tapas.utils import interaction_utils_parser
+from tapas.utils import pruning_utils
 from tapas.utils import sqa_utils
 from tapas.utils import tabfact_utils
 from tapas.utils import tasks
@@ -39,6 +40,7 @@ def get_interaction_dir(output_dir):
 def _to_tfrecord(
     interactions,
     output_dir,
+    token_selector,
 ):
   """Dump interactions to TFRecord files."""
   interactions_dir = get_interaction_dir(output_dir)
@@ -47,6 +49,8 @@ def _to_tfrecord(
     tfrecord_file = os.path.join(interactions_dir, f'{name}.tfrecord')
     with tf.io.TFRecordWriter(tfrecord_file) as writer:
       for interaction in examples:
+        if token_selector is not None:
+          interaction = token_selector.annotated_interaction(interaction)
         writer.write(interaction.SerializeToString())
 
 
@@ -98,8 +102,12 @@ def get_supervision_modes(task):
   raise ValueError(f'Unknown task: {task.name}')
 
 
-def create_interactions(task, input_dir,
-                        output_dir):
+def create_interactions(
+    task,
+    input_dir,
+    output_dir,
+    token_selector,
+):
   """Converts original task data to interactions.
 
   Interactions will be written to f'{output_dir}/interactions'. Other files
@@ -109,7 +117,14 @@ def create_interactions(task, input_dir,
     task: The current task.
     input_dir: Data with original task data.
     output_dir: Outputs are written to this directory.
+    token_selector: Optional helper class to keep more relevant tokens in input.
   """
+
+  def to_tfrecord(
+      interactions):
+    """Helper function that binds output dir and token_selector arguments."""
+    _to_tfrecord(interactions, output_dir, token_selector)
+
   if task == tasks.Task.SQA:
     tsv_dir = input_dir
   elif task == tasks.Task.WTQ:
@@ -122,7 +137,7 @@ def create_interactions(task, input_dir,
     wikisql_utils.convert(input_dir, output_dir)
     tsv_dir = output_dir
   elif task == tasks.Task.TABFACT:
-    _to_tfrecord(tabfact_utils.convert(input_dir), output_dir)
+    to_tfrecord(tabfact_utils.convert(input_dir))
     return
   else:
     raise ValueError(f'Unknown task: {task.name}')
@@ -130,4 +145,5 @@ def create_interactions(task, input_dir,
       get_supervision_modes(task),
       tsv_dir,
       get_interaction_dir(output_dir),
+      token_selector,
   )

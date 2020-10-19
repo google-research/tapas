@@ -18,13 +18,14 @@
 import collections
 import csv
 import os
+from typing import Iterable, Mapping, Text, Optional
 
-from typing import Text, Iterable, Mapping
 from absl import logging
 from tapas.protos import interaction_pb2
 from tapas.utils import file_utils
 from tapas.utils import interaction_utils
 from tapas.utils import interaction_utils_parser
+from tapas.utils import pruning_utils
 import tensorflow.compat.v1 as tf
 
 
@@ -145,10 +146,15 @@ def _parse_questions(interaction_dict,
   _write_report(report_filename, supervision_modes, counters)
 
 
-def _write_tfrecord(interactions,
-                    filepath):
+def _write_tfrecord(
+    interactions,
+    filepath,
+    token_selector,
+):
   with tf.io.TFRecordWriter(filepath + '.tfrecord') as writer:
     for interaction in interactions:
+      if token_selector is not None:
+        interaction = token_selector.annotated_interaction(interaction)
       writer.write(interaction.SerializeToString())
 
 
@@ -157,15 +163,19 @@ def _get_output_filename(output_dir, input_file):
   return os.path.join(output_dir, basename)
 
 
-def create_interactions(supervision_modes,
-                        input_dir=Text,
-                        output_dir=Text):
+def create_interactions(
+    supervision_modes,
+    input_dir,
+    output_dir,
+    token_selector,
+):
   """Converts data in SQA format to Interaction protos.
 
   Args:
     supervision_modes: Import for WikiSQL, decide if supervision is removed.
     input_dir: SQA data.
     output_dir: Where interactions will be written.
+    token_selector: Optional helper class to keep more relevant tokens in input.
   """
   file_utils.make_directories(output_dir)
 
@@ -174,4 +184,5 @@ def create_interactions(supervision_modes,
   _parse_questions(interaction_dict, supervision_modes,
                    os.path.join(output_dir, 'report.tsv'))
   for filename, interactions in interaction_dict.items():
-    _write_tfrecord(interactions, _get_output_filename(output_dir, filename))
+    _write_tfrecord(interactions, _get_output_filename(output_dir, filename),
+                    token_selector)

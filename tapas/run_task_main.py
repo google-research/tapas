@@ -34,6 +34,7 @@ from tapas.scripts import prediction_utils
 from tapas.utils import file_utils
 from tapas.utils import hparam_utils
 from tapas.utils import number_annotation_utils
+from tapas.utils import pruning_utils
 from tapas.utils import task_utils
 from tapas.utils import tasks
 from tapas.utils import tf_example_utils
@@ -117,6 +118,9 @@ flags.DEFINE_string(
 
 flags.DEFINE_bool('reset_position_index_per_cell', False,
                   'If true, reset absolute position index at every cell.')
+
+flags.DEFINE_bool('prune_columns', False,
+                  'Use word overlap heuristics to keep most relevant columns.')
 
 _MAX_TABLE_ID = 512
 _MAX_PREDICTIONS_PER_SEQ = 20
@@ -305,6 +309,19 @@ def _get_test_prediction_file(
     suffix = f'_sequence{suffix}'
   filename = _get_test_filename(task, test_set)
   return os.path.join(model_dir, f'{filename}{suffix}.tsv')
+
+
+def _get_token_selector():
+  if not FLAGS.prune_columns:
+    return None
+  return pruning_utils.HeuristicExactMatchTokenSelector(
+      FLAGS.bert_vocab_file,
+      FLAGS.max_seq_length,
+      pruning_utils.SelectionType.COLUMN,
+      # Only relevant for SQA where questions come in sequence
+      use_previous_answer=True,
+      use_previous_questions=True,
+  )
 
 
 def _train_and_predict(
@@ -745,7 +762,9 @@ def main(argv):
 
   if mode == Mode.CREATE_DATA:
     _print('Creating interactions ...')
-    task_utils.create_interactions(task, FLAGS.input_dir, output_dir)
+    token_selector = _get_token_selector()
+    task_utils.create_interactions(task, FLAGS.input_dir, output_dir,
+                                   token_selector)
     _print('Creating TF examples ...')
     _create_all_examples(
         task,

@@ -1,0 +1,95 @@
+// Copyright 2019 The Google AI Language Team Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+syntax = "proto2";
+
+package language.tapas;
+
+import "tapas/protos/interaction.proto";
+
+message TableSelection {
+  extend language.tapas.Question {
+    optional TableSelection table_selection_ext = 288888271;
+  }
+
+  // Tokens that should be added to the TF example.
+  // Must not be empty!
+  message TokenCoordinates {
+    // The header row has index 0, the first data row index 1.
+    optional int32 row_index = 1;
+    optional int32 column_index = 2;
+    optional int32 token_index = 3;
+  }
+  repeated TokenCoordinates selected_tokens = 3;
+
+  message ModelPredictionStatsPerModel {
+    // Identifier of the model that produced this result.
+    optional string model_id = 1;
+    // Whether the model predictions is correct.
+    optional bool is_correct = 2;
+  }
+
+  // For each column of the table and every model that correctly answered the
+  // question when run on the whole table, whether it also correctly
+  // answered the question when this column was removed from the input.
+  // That is, is_correct == false implies that this column is relevant for
+  // answering the question.
+  // For example for the following output:
+  /*      model_prediction_stats: {
+            model_id: "1"
+            is_correct: true
+          }
+          model_prediction_stats: {
+            model_id: "5"
+            is_correct: false
+          }
+          column: 0
+        }
+  */
+  // Model 2, 3 and 4 didn't answer the question correctly even when running
+  // on the whole table. When column 0 was removed from the input, model 1
+  // answered the question correctly and model 5 incorrectly.
+  message ModelPredictionStatsPerColumn {
+    // Column index.
+    optional int32 column = 3;
+    repeated ModelPredictionStatsPerModel model_prediction_stats = 2;
+  }
+
+  message ModelPredictionStats {
+    repeated ModelPredictionStatsPerColumn column_prediction_stats = 1;
+    // Model predictions of the umodified inputs.
+    repeated ModelPredictionStatsPerModel model_prediction_stats = 2;
+  }
+
+  optional ModelPredictionStats model_prediction_stats = 2;
+
+  message DebugInfo {
+    message Column {
+      // Index of the column.
+      optional int32 index = 1;
+
+      // The score assigned by some scorer.
+      optional double score = 2;
+
+      // True if the column was selected as relevant by some column selector.
+      optional bool is_selected = 3;
+
+      // True if the column is needed to find the final answer (gold data).
+      optional bool is_required = 4;
+    }
+
+    repeated Column columns = 1;
+  }
+
+  optional DebugInfo debug = 100;
+}

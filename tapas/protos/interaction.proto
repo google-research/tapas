@@ -76,6 +76,8 @@ message Answer {
   // Present if the answer can be represented as a single integer value, for
   // example when it's a classification or entailment task.
   optional int32 class_index = 6;
+
+  extensions 10000 to max;
 }
 
 // Represents a simple table with m rows and n columns.

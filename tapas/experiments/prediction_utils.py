@@ -18,9 +18,11 @@
 import collections
 import copy
 import csv
+import json
 from typing import Mapping, Text, Tuple, Iterable, List
 
 from absl import logging
+import dataclasses
 import numpy as np
 from tapas.models import tapas_classifier_model
 from tapas.utils import text_utils
@@ -175,13 +177,57 @@ def _geometric_mean(values):
   return np.exp(np.mean(np.log(values)))
 
 
-def get_answer_indexes(
+@dataclasses.dataclass(frozen=True)
+class TokenAnswer:
+  """An answer extracted from a table cell."""
+  # Index of the column the answer is in.
+  column_index: int
+  # Index of the row the answer is in.
+  row_index: int
+  # Start token index with-in the cell.
+  begin_token_index: int
+  # End token index with-in the cell (exlusive).
+  end_token_index: int
+  # Indexes of the word pieces in the vocabulary.
+  token_ids: List[int]
+  # Answer score.
+  score: float
+
+
+def _to_token_answer(
+    prediction,
+    begin_token_index,
+    end_token_index,
+    score,
+):
+  """Gets the cell cordinates and relative token indexes."""
+  input_ids = prediction["input_ids"]
+  column_ids = prediction["column_ids"]
+  row_ids = prediction["row_ids"]
+
+  column_id = column_ids[begin_token_index]
+  row_id = row_ids[begin_token_index]
+
+  cell_begin_token_index = list(zip(row_ids, column_ids)).index(
+      (row_id, column_id))
+
+  return TokenAnswer(
+      column_index=int(column_id - 1),
+      row_index=int(row_id - 1),
+      begin_token_index=int(begin_token_index - cell_begin_token_index),
+      end_token_index=int(end_token_index - cell_begin_token_index),
+      token_ids=[
+          int(input_ids[i]) for i in range(begin_token_index, end_token_index)
+      ],
+      score=float(score),
+  )
+
+
+def _get_token_answers(
     prediction,
     cell_classification_threshold,
 ):
   """Computes answer indexes."""
-  input_ids = prediction["input_ids"]
-
   span_indexes = prediction.get("span_indexes")
   span_logits = prediction.get("span_logits")
   if span_indexes is not None and span_logits is not None:
@@ -193,16 +239,50 @@ def get_answer_indexes(
         best_span,
         best_logit,
     )
-    indexes = [input_ids[i] for i in range(best_span[0], best_span[1] + 1)]
-    return indexes, best_logit
+    return [
+        _to_token_answer(
+            prediction,
+            best_span[0],
+            best_span[1] + 1,
+            best_logit,
+        )
+    ]
 
   answers = []
+
+  answer_begin_index = None
+  answer_end_index = None
   answer_probs = []
   for i, prob in get_cell_token_probs(prediction):
     if prob > cell_classification_threshold:
-      answers.append(input_ids[i])
+
+      if answer_end_index is not None:
+        if answer_end_index < i:
+          # There is a gap between the current answer and the new index.
+          answers.append(
+              _to_token_answer(
+                  prediction,
+                  answer_begin_index,
+                  answer_end_index,
+                  _geometric_mean(answer_probs),
+              ))
+          answer_begin_index = None
+          answer_end_index = None
+          answer_probs.clear()
+
+      if answer_begin_index is None:
+        answer_begin_index = i
+      answer_end_index = i + 1
       answer_probs.append(prob)
-  return answers, _geometric_mean(answer_probs)
+  if answer_begin_index is not None:
+    answers.append(
+        _to_token_answer(
+            prediction,
+            begin_token_index=answer_begin_index,
+            end_token_index=answer_end_index,
+            score=_geometric_mean(answer_probs),
+        ))
+  return answers
 
 
 def _write_prediction(
@@ -224,7 +304,7 @@ def _write_prediction(
 
   cell_coords_to_prob = get_mean_cell_probs(prediction)
 
-  answer_indexes, answer_score = get_answer_indexes(
+  answers = _get_token_answers(
       prediction,
       cell_classification_threshold,
   )
@@ -251,8 +331,7 @@ def _write_prediction(
       "annotator": annotator,
       "position": position,
       "answer_coordinates": str(answer_coordinates),
-      "answer": str(answer_indexes),
-      "answer_score": str(answer_score),
+      "answers": token_answers_to_text(answers),
   }
   if do_model_aggregation:
     prediction_to_write["gold_aggr"] = str(prediction["gold_aggr"][0])
@@ -262,6 +341,14 @@ def _write_prediction(
     prediction_to_write["pred_cls"] = str(prediction["pred_cls"])
     prediction_to_write["logits_cls"] = str(prediction["logits_cls"])
   writer.writerow(prediction_to_write)
+
+
+def token_answers_to_text(answers):
+  return json.dumps([dataclasses.asdict(answer) for answer in answers])
+
+
+def token_answers_from_text(text):
+  return [TokenAnswer(**answer_dict) for answer_dict in json.loads(text)]
 
 
 def write_predictions(
@@ -291,8 +378,7 @@ def write_predictions(
         "annotator",
         "position",
         "answer_coordinates",
-        "answer",
-        "answer_score",
+        "answers",
     ]
     if do_model_aggregation:
       header.extend(["gold_aggr", "pred_aggr"])

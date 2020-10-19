@@ -9,3 +9,4 @@ tf-models-official~=2.2.0
 kaggle<1.5.8
 tensorflow-probability==0.10.1
 tf_slim~=1.1.0
+nltk~=3.5
