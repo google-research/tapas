@@ -91,10 +91,11 @@ def read(fname):
 
 prepare()
 setup(
-    name="tapas",
+    name="tapas-table-parsing",
     version="0.0.1.dev",
     packages=find_packages(),
     description="Tapas: Table-based Question Answering.",
+    long_description_content_type="text/markdown",
     long_description=read("README.md"),
     author="Google Inc.",
     url="https://github.com/google-research/tapas",
