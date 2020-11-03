@@ -131,14 +131,18 @@ class TrimmedConversionConfig(ConversionConfig):
 
 @dataclasses.dataclass(frozen=True)
 class ClassifierConversionConfig(TrimmedConversionConfig):
+  """The config used to extract the tf examples for the classifier model."""
   add_aggregation_candidates: bool = False
   expand_entity_descriptions: bool = False
+  use_entity_title: bool = False
   entity_descriptions_sentence_limit: int = 5
   use_document_title: bool = False
   # Re-computes answer coordinates from the answer text.
   update_answer_coordinates: bool = False
   # Drop last rows if table doesn't fit within max sequence length.
   drop_rows_to_fit: bool = False
+  # If true adds the context heading of the table to the question.
+  use_context_title: bool = False
 
 
 
@@ -1066,6 +1070,7 @@ class ToClassifierTensorflowExample(ToTrimmedTensorflowExample):
     super(ToClassifierTensorflowExample, self).__init__(config)
     self._add_aggregation_candidates = config.add_aggregation_candidates
     self._use_document_title = config.use_document_title
+    self._use_context_title = config.use_context_title
     self._update_answer_coordinates = config.update_answer_coordinates
     self._drop_rows_to_fit = config.drop_rows_to_fit
 
@@ -1082,6 +1087,11 @@ class ToClassifierTensorflowExample(ToTrimmedTensorflowExample):
       document_title_tokens = self._tokenizer.tokenize(table.document_title)
       text_tokens.append(Token(_SEP, _SEP))
       text_tokens.extend(document_title_tokens)
+    context_heading = table.context_heading
+    if self._use_context_title and context_heading:
+      context_title_tokens = self._tokenizer.tokenize(context_heading)
+      text_tokens.append(Token(_SEP, _SEP))
+      text_tokens.extend(context_title_tokens)
     return text_tokens
 
   def convert(self, interaction,
@@ -1141,10 +1151,10 @@ class ToClassifierTensorflowExample(ToTrimmedTensorflowExample):
     self._pad_to_seq_length(answer_ids)
     features['label_ids'] = create_int_feature(answer_ids)
 
-    if index == 0:
-      prev_answer_ids = [0] * len(column_ids)
-    else:
+    if index > 0:
       prev_answer_ids = get_answer_ids(interaction.questions[index - 1],)
+    else:
+      prev_answer_ids = [0] * len(column_ids)
     self._pad_to_seq_length(prev_answer_ids)
     features['prev_label_ids'] = create_int_feature(prev_answer_ids)
     features['question_id'] = create_string_feature(

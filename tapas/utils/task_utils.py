@@ -116,7 +116,7 @@ def create_interactions(
     input_dir,
     output_dir,
     token_selector,
-):
+):  # pylint: disable=g-doc-args
   """Converts original task data to interactions.
 
   Interactions will be written to f'{output_dir}/interactions'. Other files

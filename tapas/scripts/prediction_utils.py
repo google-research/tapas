@@ -18,7 +18,7 @@
 import ast
 import csv
 import os
-from typing import Any, Iterable, Set, Text, Tuple
+from typing import Any, Iterable, Set, Text, Tuple, Mapping
 
 import pandas as pd
 from tapas.protos import interaction_pb2
@@ -30,10 +30,13 @@ def parse_coordinates(raw_coordinates):
   return {ast.literal_eval(x) for x in ast.literal_eval(raw_coordinates)}
 
 
+# TODO(thomasmueller) Return a dataclass here.
 def iterate_predictions(prediction_file):
   with tf.io.gfile.GFile(prediction_file, 'r') as f:
     reader = csv.DictReader(f, delimiter='\t')
     for row in reader:
+      if 'logits_cls' in row:
+        row['logits_cls'] = float(row['logits_cls'])
       yield row
 
 

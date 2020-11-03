@@ -106,6 +106,9 @@ message Table {
   // Other versions of the same table.
   repeated string alternative_table_ids = 8;
 
+  // Heading of the table on the document.
+  optional string context_heading = 9;
+
   extensions 10000 to max;
 }
 

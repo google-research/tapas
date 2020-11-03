@@ -58,9 +58,17 @@ def parse_table_examples(
                              tf.int64,
                              default_value=[0] * max_seq_length),
       "column_ranks":
-          tf.FixedLenFeature([max_seq_length], tf.int64),
+          tf.FixedLenFeature(
+              [max_seq_length],
+              tf.int64,
+              default_value=[0] * max_seq_length,
+          ),
       "inv_column_ranks":
-          tf.FixedLenFeature([max_seq_length], tf.int64),
+          tf.FixedLenFeature(
+              [max_seq_length],
+              tf.int64,
+              default_value=[0] * max_seq_length,
+          ),
       "numeric_relations":
           tf.FixedLenFeature([max_seq_length],
                              tf.int64,
@@ -80,7 +88,12 @@ def parse_table_examples(
   elif task_type == TableTask.CLASSIFICATION:
     # For classification we have a label for each token.
     feature_types.update({
-        "label_ids": tf.FixedLenFeature([max_seq_length], tf.int64),
+        "label_ids":
+            tf.FixedLenFeature(
+                [max_seq_length],
+                tf.int64,
+                default_value=[0] * max_seq_length,
+            ),
     })
     # TODO Remove default_value once the data has been updated.
     feature_types.update({
@@ -103,11 +116,23 @@ def parse_table_examples(
     if add_answer:
       feature_types.update({
           "numeric_values":
-              tf.FixedLenFeature([max_seq_length], tf.float32),
+              tf.FixedLenFeature(
+                  [max_seq_length],
+                  tf.float32,
+                  default_value=[0] * max_seq_length,
+              ),
           "numeric_values_scale":
-              tf.FixedLenFeature([max_seq_length], tf.float32),
+              tf.FixedLenFeature(
+                  [max_seq_length],
+                  tf.float32,
+                  default_value=[0] * max_seq_length,
+              ),
           "answer":
-              tf.FixedLenFeature([1], tf.float32),
+              tf.FixedLenFeature(
+                  [1],
+                  tf.float32,
+                  default_value=[0],
+              ),
       })
   else:
     raise ValueError(f"Unsupported task type: {task_type}")

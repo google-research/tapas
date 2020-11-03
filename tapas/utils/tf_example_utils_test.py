@@ -345,5 +345,54 @@ class TfExampleUtilsTest(absltest.TestCase):
           _get_int_feature(example, 'numeric_relations'),
           [0, 0, 0, 0, 4, 2, 4, 2, 2, 0, 0, 0])
 
+  def test_convert_with_context_heading(self):
+    max_seq_length = 20
+    with tempfile.TemporaryDirectory() as input_dir:
+      vocab_file = os.path.join(input_dir, 'vocab.txt')
+      _create_vocab(vocab_file, ['a', 'b', 'c', 'd', 'e'])
+      converter = tf_example_utils.ToClassifierTensorflowExample(
+          config=tf_example_utils.ClassifierConversionConfig(
+              vocab_file=vocab_file,
+              max_seq_length=max_seq_length,
+              max_column_id=max_seq_length,
+              max_row_id=max_seq_length,
+              strip_column_names=False,
+              add_aggregation_candidates=False,
+              use_document_title=True,
+              use_context_title=True,
+              update_answer_coordinates=True,
+          ))
+      interaction = interaction_pb2.Interaction(
+          table=interaction_pb2.Table(
+              document_title='E E',
+              columns=[
+                  interaction_pb2.Cell(text='A'),
+                  interaction_pb2.Cell(text='A B C'),
+              ],
+              rows=[
+                  interaction_pb2.Cells(cells=[
+                      interaction_pb2.Cell(text='A B'),
+                      interaction_pb2.Cell(text='A B C'),
+                  ]),
+              ],
+              context_heading='B',
+          ),
+          questions=[
+              interaction_pb2.Question(
+                  id='id',
+                  original_text='D',
+                  answer=interaction_pb2.Answer(answer_texts=['B C']),
+              )
+          ],
+      )
+      example = converter.convert(interaction, 0)
+      logging.info(example)
+      self.assertEqual(
+          _get_int_feature(example, 'input_ids'),
+          [2, 5, 3, 10, 10, 3, 7, 3, 6, 6, 7, 8, 6, 7, 6, 7, 8, 0, 0, 0])
+      self.assertEqual(
+          _get_int_feature(example, 'label_ids'),
+          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0])
+
 if __name__ == '__main__':
   absltest.main()

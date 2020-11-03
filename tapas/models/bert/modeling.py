@@ -893,7 +893,14 @@ def attention_layer(from_tensor,
     # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
     # masked positions, this operation will create a tensor which is 0.0 for
     # positions we want to attend and -10000.0 for masked positions.
-    adder = tf.math.log(tf.cast(attention_mask, tf.float32))
+    attention_mask_float = tf.cast(attention_mask, tf.float32)
+    # Please keep this tf.where as it fixes back propagation issues: It removes
+    # NaNs when using tf.math.log.
+    attention_mask_float = tf.where(attention_mask_float > 0.0,
+                                    attention_mask_float,
+                                    tf.zeros_like(attention_mask_float))
+
+    adder = tf.math.log(attention_mask_float)
     adder = tf.where(
         tf.is_finite(adder), adder,
         tf.zeros_like(adder, dtype=tf.float32) - 10000.0)

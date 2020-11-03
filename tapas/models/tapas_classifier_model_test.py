@@ -16,6 +16,7 @@
 
 from typing import Iterator, Tuple
 from absl.testing import parameterized
+
 import numpy as np
 from tapas.datasets import table_dataset
 from tapas.datasets import table_dataset_test_utils
@@ -52,8 +53,8 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
         max_num_candidates=10)
 
   def _create_estimator(self, params):
-    tf.logging.info("Setting random seed to {}".format(42))
-    np.random.seed(42)
+    tf.logging.info("Setting random seed to {}".format(420))
+    np.random.seed(420)
 
     # Small bert model for testing.
     bert_config = modeling.BertConfig.from_dict({
