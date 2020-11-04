@@ -23,7 +23,6 @@ from apache_beam.options import pipeline_options
 from apache_beam.runners.direct import direct_runner
 
 
-
 class RunnerType(enum.Enum):
   DIRECT = 1
   DATAFLOW = 2

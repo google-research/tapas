@@ -18,6 +18,7 @@ import os
 import tempfile
 
 from absl import flags
+from absl import logging
 from absl.testing import absltest
 from absl.testing import parameterized
 
@@ -33,11 +34,16 @@ TEST_PATH = "tapas/utils/testdata/"
 _RESERVED_SYMBOLS = ("[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]", "[EMPTY]")
 
 
-def read_examples(filepath):
+def _read_examples(filepath):
   for value in tf.python_io.tf_record_iterator(filepath):
     example = tf.train.Example()
     example.ParseFromString(value)
     yield example
+
+
+def _create_vocab(vocab, vocab_path):
+  with tf.gfile.Open(vocab_path, "w") as input_handle:
+    input_handle.write("\n".join(vocab))
 
 
 class CreatePretrainingDataTest(parameterized.TestCase):
@@ -47,10 +53,6 @@ class CreatePretrainingDataTest(parameterized.TestCase):
 
     self._test_dir = TEST_PATH
 
-  def _create_vocab(self, vocab, vocab_path):
-    with tf.gfile.Open(vocab_path, "w") as input_handle:
-      input_handle.write("\n".join(vocab))
-
   @parameterized.parameters(
       (beam_runner.RunnerType.DIRECT,),
   )
@@ -58,13 +60,11 @@ class CreatePretrainingDataTest(parameterized.TestCase):
 
     with tempfile.TemporaryDirectory() as temp_dir:
       vocab_path = os.path.join(temp_dir, "vocab.txt")
-
-      self._create_vocab(list(_RESERVED_SYMBOLS) + ["released"], vocab_path)
+      _create_vocab(list(_RESERVED_SYMBOLS) + ["released"], vocab_path)
 
       pipeline = pretrain_utils.build_pretrain_data_pipeline(
-          input_files=[
-              os.path.join(self._test_dir, "pretrain_interactions.txtpb")
-          ],
+          input_file=os.path.join(self._test_dir,
+                                  "pretrain_interactions.txtpb"),
           output_dir=temp_dir,
           config=tf_example_utils.PretrainConversionConfig(
               vocab_file=vocab_path,
@@ -81,14 +81,16 @@ class CreatePretrainingDataTest(parameterized.TestCase):
           dupe_factor=2,
           min_num_columns=0,
           min_num_rows=0,
+          num_splits=2,
       )
 
       beam_runner.run_type(pipeline, runner_type).wait_until_finish()
 
-      for name, expected_len in [("train", 20), ("test", 2)]:
+      logging.info("temp dir: %s", os.listdir(temp_dir))
+      for name in ["train", "test"]:
         examples = list(
-            read_examples(os.path.join(temp_dir, f"{name}.tfrecord")))
-        self.assertLen(examples, expected_len)
+            _read_examples(os.path.join(temp_dir, f"{name}.tfrecord")))
+        self.assertNotEmpty(examples)
 
 
 if __name__ == "__main__":

@@ -97,7 +97,7 @@ def main(argv):
       strip_column_names=False,
   )
   pipeline = pretrain_utils.build_pretrain_data_pipeline(
-      input_files=[FLAGS.input_file],
+      input_file=FLAGS.input_file,
       output_dir=FLAGS.output_dir,
       config=config,
       dupe_factor=FLAGS.dupe_factor,

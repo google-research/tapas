@@ -16,10 +16,9 @@
 
 import os
 import random
-from typing import Iterable, Tuple, Text, Optional, List, Union
+from typing import Iterable, Tuple, Text, Optional, Union
 
 import apache_beam as beam
-
 from tapas.protos import interaction_pb2
 from tapas.utils import number_annotation_utils
 from tapas.utils import tf_example_utils
@@ -31,6 +30,9 @@ _NS = "main"
 _KeyInteraction = Tuple[Text, interaction_pb2.Interaction]
 _KeyInteractionTable = Tuple[Text, Tuple[interaction_pb2.Interaction,
                                          Optional[interaction_pb2.Table]]]
+
+_Proto = Union[interaction_pb2.Interaction, interaction_pb2.Table,
+               tf.train.Example]
 
 
 def fingerprint(key):
@@ -114,10 +116,22 @@ def duplicate_fn(key_interaction,
     yield new_id, interaction
 
 
-def _parse_interaction(text_proto_line):
-  interaction = text_format.Parse(text_proto_line,
-                                  interaction_pb2.Interaction())
-  return (interaction.id, interaction)
+def _parse_text_proto(
+    text_proto_line,
+    proto_message,
+):
+  message = text_format.Parse(text_proto_line, proto_message())
+  return (_get_input_id(message), message)
+
+
+def _parse_text_interaction(text_proto_line,):
+  output = _parse_text_proto(text_proto_line, interaction_pb2.Interaction)
+  assert isinstance(output[1], interaction_pb2.Interaction)
+  return output
+
+
+def _proto_to_text(message):
+  return text_format.MessageToString(message, as_one_line=True)
 
 
 class ToTensorflowExample(beam.DoFn):
@@ -154,22 +168,40 @@ def to_numpy_seed(obj):
   return tf_example_utils.fingerprint(repr(obj)) % _MAX_INT
 
 
-def _partition_fn(example,
-                  partition_count, num_splits):
+def _partition_fn(
+    example,
+    partition_count,
+    num_splits,
+):
   """Partitions example into train/test based on hash of table id."""
   assert partition_count == 2
-
-  if isinstance(example, interaction_pb2.Interaction):
-    example_id = example.table.table_id
-  elif isinstance(example, tf.train.Example):
-    example_id = example.features.feature["table_id"].bytes_list.value[0]
-  else:
-    raise ValueError(f"Unexpected type: {type(example)}")
-
+  example_id = _get_table_id(example)
   shard = to_numpy_seed(example_id) % num_splits
   if shard == 0:
     return 1
   return 0
+
+
+def write_proto_outputs(output_file, name, data, proto_message):
+  """Write protos to a container."""
+  if output_file.endswith((".txtpb.gz", ".txtpb")):
+    _ = (
+        data
+        | "ToTextProto" % name >> beam.Map(
+            _proto_to_text,
+            proto_message=proto_message,
+        )
+        | "WriteTextExamples_%s" % name >> beam.io.WriteToText(output_file))
+    return
+  elif output_file.endswith(".tfrecord"):
+    _ = (
+        data
+        | "WriteTFRecordsExamples_%s" % name >> beam.io.WriteToTFRecord(
+            file_path_prefix=output_file,
+            shard_name_template="",
+            coder=beam.coders.ProtoCoder(proto_message)))
+    return
+  raise ValueError(f"Unsupported output format: {output_file}")
 
 
 def split_by_table_id_and_write(
@@ -191,12 +223,7 @@ def split_by_table_id_and_write(
       [train, test],
   ):
     output_file = os.path.join(output_dir, name + suffix)
-    _ = (
-        data
-        | "WriteTFRecordsExamples_%s" % name >> beam.io.WriteToTFRecord(
-            file_path_prefix=output_file,
-            shard_name_template="",
-            coder=beam.coders.ProtoCoder(proto_message)))
+    write_proto_outputs(output_file, name, data, proto_message)
 
 
 def pair_with_none_fn(
@@ -206,26 +233,20 @@ def pair_with_none_fn(
 
 
 def build_pretrain_data_pipeline(
-    input_files,
+    input_file,
     output_dir,
     config,
     dupe_factor,
     min_num_rows,
     min_num_columns,
+    num_splits = 100,
 ):
   """Maps pre-training interactions to TF examples."""
 
   def pipeline(root):
-
-    lines = []
-    for filename in input_files:
-      lines.append(
-          root | f"Read {filename}" >> beam.io.textio.ReadFromText(filename))
-
+    interactions = read_interactions(root, input_file, name="input")
     examples = (
-        lines | "Flatten" >> beam.Flatten()
-        | "Pre-Shuffle" >> beam.transforms.util.Reshuffle()
-        | "Parse" >> beam.Map(_parse_interaction)
+        interactions
         | "CheckTableId" >> beam.FlatMap(check_table_id_fn)
         | "CheckTableSize" >> beam.FlatMap(check_tale_size_fn, min_num_rows,
                                            min_num_columns)
@@ -240,6 +261,51 @@ def build_pretrain_data_pipeline(
         examples,
         output_dir,
         proto_message=tf.train.Example,
+        num_splits=num_splits,
     )
 
   return pipeline
+
+
+def _get_input_id(element):
+  if isinstance(element, interaction_pb2.Interaction):
+    return str(element.id)
+  if isinstance(element, interaction_pb2.Table):
+    return str(element.table_id)
+  if isinstance(element, tf.train.Example):
+    question_id = element.features.feature["question_id"].bytes_list.value[0]
+    return question_id.decode("utf8")
+  raise ValueError(f"Cannot extract id: {type(element)}")
+
+
+def _get_table_id(element):
+  if isinstance(element, interaction_pb2.Interaction):
+    return str(element.table.table_id)
+  if isinstance(element, interaction_pb2.Table):
+    return str(element.table_id)
+  if isinstance(element, tf.train.Example):
+    table_id = element.features.feature["table_id"].bytes_list.value[0]
+    return table_id.decode("utf8")
+  raise ValueError(f"Cannot extract table id: {type(element)}")
+
+
+def read_inputs(root, input_file, name, proto_message):
+  """Reads interaction or table protos."""
+  if input_file.endswith((".txtpb.gz", ".txtpb")):
+    return (root | f"Read {name}" >> beam.io.textio.ReadFromText(input_file)
+            | "Pre-Shuffle" >> beam.transforms.util.Reshuffle()
+            | "Parse Text Proto" >> beam.Map(_parse_text_interaction))
+  value_coder = beam.coders.ProtoCoder(proto_message)
+  if input_file.endswith(".tfrecord"):
+    return (
+        root | "Read Inputs %s" % name >> beam.io.ReadFromTFRecord(
+            file_pattern=input_file, coder=value_coder, validate=False)
+        | "Key Inputs_%s" % name >>
+        beam.Map(lambda interaction: (_get_input_id(interaction), interaction))
+        | "Reshuffle_%s" % name >> beam.transforms.util.Reshuffle())
+  raise ValueError(f"Unsupported input format: {input_file}")
+
+
+def read_interactions(root, input_file, name):
+  return read_inputs(
+      root, input_file, name, proto_message=interaction_pb2.Interaction)
