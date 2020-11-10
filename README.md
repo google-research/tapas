@@ -12,10 +12,10 @@ in the paper [TAPAS: Weakly Supervised Table Parsing via Pre-training](#how-to-c
    * For more details see [this issue](https://github.com/google-research/tapas/issues/73).
  * Added option to filter table columns by textual overlap with question
    * Based on the **HEM** method described in section 3.3 of
- [Understanding tables with intermediate pre-training](https://arxiv.org/abs/2010.00571).
+ [Understanding tables with intermediate pre-training](https://www.aclweb.org/anthology/2020.findings-emnlp.27/).
 
 #### 2020/10/09
- * Released code & models to run TAPAS on [TabFact](https://tabfact.github.io/) for table entailment, companion for the EMNLP 2020 Findings paper [Understanding tables with intermediate pre-training](https://arxiv.org/abs/2010.00571).
+ * Released code & models to run TAPAS on [TabFact](https://tabfact.github.io/) for table entailment, companion for the EMNLP 2020 Findings paper [Understanding tables with intermediate pre-training](https://www.aclweb.org/anthology/2020.findings-emnlp.27/).
  * Added a [colab](http://tiny.cc/tapas-tabfact-colab) to try predictions on TabFact
  * Added [new page](https://github.com/google-research/tapas/blob/master/INTERMEDIATE_PRETRAIN_DATA.md) describing the intermediate pre-training process.
 
@@ -73,7 +73,7 @@ are in the right ballpark. They are medians over three individual runs.
 
 ### Models with intermediate pre-training (2020/10/07).
 
-New models based on the ideas discussed in [Understanding tables with intermediate pre-training](https://arxiv.org/abs/2010.00571). Learn more about the methods use [here](https://github.com/google-research/tapas/blob/master/INTERMEDIATE_PRETRAIN_DATA.md).
+New models based on the ideas discussed in [Understanding tables with intermediate pre-training](https://www.aclweb.org/anthology/2020.findings-emnlp.27/). Learn more about the methods use [here](https://github.com/google-research/tapas/blob/master/INTERMEDIATE_PRETRAIN_DATA.md).
 
 #### WTQ
 
@@ -344,7 +344,7 @@ python3 tapas/run_task_main.py \
 
 Optionally, to handle big tables, we can add a `--prune_columns` flag to
 apply the **HEM** method described section 3.3 of our
-[paper](https://arxiv.org/abs/2010.00571) to discard some columns based on
+[paper](https://www.aclweb.org/anthology/2020.findings-emnlp.27/) to discard some columns based on
 textual overlap with the sentence.
 
 Afterwards, training can be started by running:
@@ -420,7 +420,7 @@ Evaluation with the default test batch size (32) should be possible on GPU.
 ## <a name="how-to-cite-tapas"></a>How to cite TAPAS?
 
 You can cite the [ACL 2020 paper](https://www.aclweb.org/anthology/2020.acl-main.398/)
-and the [EMNLP 2020 Findings paper](https://arxiv.org/abs/2010.00571) for the laters work on pre-training objectives.
+and the [EMNLP 2020 Findings paper](https://www.aclweb.org/anthology/2020.findings-emnlp.27/) for the laters work on pre-training objectives.
 
 ## Disclaimer
 

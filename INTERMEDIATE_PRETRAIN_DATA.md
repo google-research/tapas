@@ -18,7 +18,7 @@ The grammar randomly generates two SQL-like phrases that can use aggregations or
 We assign a binary label according to the truth value of the generated statement, and the algorithm is adjusted to get the same number of positives and negatives.
 The total amount of examples obtained is 3.7 million.
 
-Below are some examples, and we recommend looking at te section 3.2 in the [paper](https://arxiv.org/abs/2010.00571) to see the full details.
+Below are some examples, and we recommend looking at te section 3.2 in the [paper](https://www.aclweb.org/anthology/2020.findings-emnlp.27/) to see the full details.
 
 1. **2** is less than **wins when Player is Lee Janzen**.
 The right hand side corresponds to the query
@@ -46,7 +46,7 @@ we replace "Greg Norman" for another entity appearing in the same column of the 
 
 The total amount of examples obtained is 4.1 million and the model is then asked to detect whether the sentence has been corrupted or not.
 The sentences obtained in this manner sound more natural, but the type of logical inference
-that the model has to perform on the table is typically simpler, since often looking at a single row is enough. You may also check section 3.1 in the [paper](https://arxiv.org/abs/2010.00571) to see the full details.
+that the model has to perform on the table is typically simpler, since often looking at a single row is enough. You may also check section 3.1 in the [paper](https://www.aclweb.org/anthology/2020.findings-emnlp.27/) to see the full details.
 
 ## Model release
 
@@ -63,5 +63,5 @@ See also the Wikipedia [Copyrights](https://en.wikipedia.org/wiki/Wikipedia:Copy
 
 ## How to cite this data and code?
 
-You can cite the [paper](https://arxiv.org/abs/2010.00571) to appear in
+You can cite the [paper](https://www.aclweb.org/anthology/2020.findings-emnlp.27/) to appear in
 EMNLP 2020 Findings.
