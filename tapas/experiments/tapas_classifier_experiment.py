@@ -258,10 +258,10 @@ def _predict_and_export_metrics(
       checkpoint,
   )
   if mode == "predict":
-    input_file = FLAGS.input_file_predict,
+    input_file = FLAGS.input_file_predict
     interactions_file = FLAGS.predict_interactions_file
   elif mode == "eval":
-    input_file = FLAGS.input_file_eval,
+    input_file = FLAGS.input_file_eval
     interactions_file = FLAGS.eval_interactions_file
   else:
     raise ValueError(f"Invalid mode {mode}")
