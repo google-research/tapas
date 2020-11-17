@@ -606,7 +606,8 @@ def _predict_for_set(
       prediction_file,
       do_model_aggregation=do_model_aggregation,
       do_model_classification=do_model_classification,
-      cell_classification_threshold=_CELL_CLASSIFICATION_THRESHOLD)
+      cell_classification_threshold=_CELL_CLASSIFICATION_THRESHOLD,
+      output_token_probabilities=False)
   tf.io.gfile.copy(prediction_file, other_prediction_file, overwrite=True)
 
 
@@ -636,6 +637,7 @@ def _predict_sequence_for_set(
       do_model_aggregation,
       do_model_classification=False,
       cell_classification_threshold=_CELL_CLASSIFICATION_THRESHOLD,
+      output_token_probabilities=False,
   )
   tf.io.gfile.copy(prediction_file, other_prediction_file, overwrite=True)
 

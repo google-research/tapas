@@ -85,6 +85,9 @@ flags.DEFINE_float("positive_weight", 10.0, "Weight for positive labels.")
 flags.DEFINE_float("cell_classification_threshold", 0.5,
                    "Threshold for selecting cells when predicting.")
 
+flags.DEFINE_bool("output_token_probabilities", False,
+                  "Whether to add token probabilities to predictions.")
+
 flags.DEFINE_bool("do_train", False, "Whether to run training.")
 
 flags.DEFINE_bool("do_eval", False, "Whether to run eval on the dev set.")
@@ -279,7 +282,8 @@ def _predict_and_export_metrics(
   prediction_utils.write_predictions(result, output_predict_file,
                                      do_model_aggregation,
                                      do_model_classification,
-                                     FLAGS.cell_classification_threshold)
+                                     FLAGS.cell_classification_threshold,
+                                     FLAGS.output_token_probabilities)
 
   if FLAGS.do_sequence_prediction:
     examples_by_position = prediction_utils.read_classifier_dataset(
@@ -300,7 +304,8 @@ def _predict_and_export_metrics(
                                        output_predict_file_sequence,
                                        do_model_aggregation,
                                        do_model_classification,
-                                       FLAGS.cell_classification_threshold)
+                                       FLAGS.cell_classification_threshold,
+                                       FLAGS.output_token_probabilities)
 
 
 

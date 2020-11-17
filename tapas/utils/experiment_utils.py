@@ -187,7 +187,7 @@ def iterate_checkpoints(
     total_steps: After each read over checkpoints, finish if `total_steps` is
       reached or `None` is passed.
     single_step: If specified, only return the checkpoint for this step.
-    minutes_to_sleep: Number of minutes to spleep between iterations.
+    minutes_to_sleep: Number of minutes to sleep between iterations.
 
   Yields:
     A tuple with a step number and checkpoint path

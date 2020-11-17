@@ -288,6 +288,7 @@ def _get_token_answers(
 def _write_prediction(
     prediction,
     cell_classification_threshold,
+    output_token_probabilities,
     do_model_aggregation,
     do_model_classification,
     writer,
@@ -333,6 +334,11 @@ def _write_prediction(
       "answer_coordinates": str(answer_coordinates),
       "answers": token_answers_to_text(answers),
   }
+  if output_token_probabilities:
+    token_probabilities = [(int(prediction["column_ids"][i]) - 1,
+                            int(prediction["row_ids"][i]) - 1, float(prob))
+                           for i, prob in get_cell_token_probs(prediction)]
+    prediction_to_write["token_probabilities"] = json.dumps(token_probabilities)
   if do_model_aggregation:
     prediction_to_write["gold_aggr"] = str(prediction["gold_aggr"][0])
     prediction_to_write["pred_aggr"] = str(prediction["pred_aggr"])
@@ -357,18 +363,20 @@ def write_predictions(
     do_model_aggregation,
     do_model_classification,
     cell_classification_threshold,
+    output_token_probabilities,
 ):
   """Writes predictions to an output TSV file.
 
-  Predictions header: [id, annotator, position, answer_coordinates, gold_aggr,
-  pred_aggr]
+  Predictions header: [id, annotator, position, answer_coordinates, answers,
+  token_probabilities, gold_aggr, pred_aggr]
 
   Args:
     predictions: model predictions
     output_predict_file: Path for wrinting the predicitons.
-    do_model_aggregation: Indicates whther to write predicted aggregations.
-    do_model_classification: Indicates whther to write predicted classes.
+    do_model_aggregation: Indicates whether to write predicted aggregations.
+    do_model_classification: Indicates whether to write predicted classes.
     cell_classification_threshold: Threshold for selecting a cell.
+    output_token_probabilities: Add token probabilities to output
   """
   with tf.io.gfile.GFile(output_predict_file, "w") as write_file:
     writer = None
@@ -380,6 +388,8 @@ def write_predictions(
         "answer_coordinates",
         "answers",
     ]
+    if output_token_probabilities:
+      header.extend(["token_probabilities"])
     if do_model_aggregation:
       header.extend(["gold_aggr", "pred_aggr"])
     if do_model_classification:
@@ -392,6 +402,7 @@ def write_predictions(
       _write_prediction(
           prediction,
           cell_classification_threshold=cell_classification_threshold,
+          output_token_probabilities=output_token_probabilities,
           do_model_classification=do_model_classification,
           do_model_aggregation=do_model_aggregation,
           writer=writer,
