@@ -127,6 +127,7 @@ class TapasClassifierConfig:
   reset_position_index_per_cell: bool = False
   disable_per_token_loss: bool = False
   span_prediction: SpanPredictionMode = SpanPredictionMode.NONE
+  proj_value_length: Optional[int] = None
 
   def to_json_string(self):
     """Serializes this instance to a JSON string."""
