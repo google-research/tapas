@@ -50,6 +50,7 @@ class BertModelTest(tf.test.TestCase):
                  type_vocab_size=16,
                  initializer_range=0.02,
                  softmax_temperature=1.0,
+                 proj_value_length=None,
                  scope=None):
       self.parent = parent
       self.batch_size = batch_size
@@ -70,6 +71,7 @@ class BertModelTest(tf.test.TestCase):
       self.initializer_range = initializer_range
       self.softmax_temperature = softmax_temperature
       self.scope = scope
+      self.proj_value_length = proj_value_length
 
     def create_model(self):
       input_ids = BertModelTest.ids_tensor([self.batch_size, self.seq_length],
@@ -105,7 +107,8 @@ class BertModelTest(tf.test.TestCase):
           input_ids=input_ids,
           input_mask=input_mask,
           token_type_ids=token_type_ids,
-          scope=self.scope)
+          scope=self.scope,
+          proj_value_length=self.proj_value_length)
 
       outputs = {
           "embedding_output": model.get_embedding_output(),
@@ -130,13 +133,27 @@ class BertModelTest(tf.test.TestCase):
   def test_default(self):
     self.run_tester(BertModelTest.BertModelTester(self))
 
+  def test_proj_value_length(self):
+    self.run_tester(
+        BertModelTest.BertModelTester(self, proj_value_length=4),
+        # We are not using the attention mask.
+        ignore_strings=[
+            "^Const_1$",
+            "^bert/encoder/Reshape/shape$",
+            "^bert/encoder/Reshape$",
+            "^bert/encoder/Cast$",
+            "^bert/encoder/ones$",
+            "^bert/encoder/mul$",
+        ],
+    )
+
   def test_config_to_json_string(self):
     config = modeling.BertConfig(vocab_size=99, hidden_size=37)
     obj = json.loads(config.to_json_string())
     self.assertEqual(obj["vocab_size"], 99)
     self.assertEqual(obj["hidden_size"], 37)
 
-  def run_tester(self, tester):
+  def run_tester(self, tester, ignore_strings=tuple()):
     with self.cached_session() as sess:
       ops = tester.create_model()
       init_op = tf.group(tf.global_variables_initializer(),
@@ -145,7 +162,7 @@ class BertModelTest(tf.test.TestCase):
       output_result = sess.run(ops)
       tester.check_output(output_result)
 
-      self.assert_all_tensors_reachable(sess, [init_op, ops])
+      self.assert_all_tensors_reachable(sess, [init_op, ops], ignore_strings)
 
   @classmethod
   def ids_tensor(cls, shape, vocab_size, rng=None, name=None):
@@ -163,11 +180,11 @@ class BertModelTest(tf.test.TestCase):
 
     return tf.constant(value=values, dtype=tf.int32, shape=shape, name=name)
 
-  def assert_all_tensors_reachable(self, sess, outputs):
+  def assert_all_tensors_reachable(self, sess, outputs, ignore_strings=tuple()):
     """Checks that all the tensors in the graph are reachable from outputs."""
     graph = sess.graph
 
-    ignore_strings = [
+    ignore_strings = list(ignore_strings) + [
         "^.*/assert_less_equal/.*$",
         "^.*/dilation_rate$",
         "^.*/Tensordot/concat$",

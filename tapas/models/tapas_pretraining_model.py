@@ -118,7 +118,8 @@ def model_fn_builder(bert_config,
                      use_tpu,
                      disabled_features = None,
                      disable_position_embeddings = False,
-                     reset_position_index_per_cell = False,):
+                     reset_position_index_per_cell = False,
+                     proj_value_length = None):
   """Returns `model_fn` closure for TPUEstimator."""
 
   def model_fn(features, labels, mode, params):
@@ -141,6 +142,7 @@ def model_fn_builder(bert_config,
         disabled_features=disabled_features,
         disable_position_embeddings=disable_position_embeddings,
         reset_position_index_per_cell=reset_position_index_per_cell,
+        proj_value_length=proj_value_length,
     )
 
     (masked_lm_loss, masked_lm_example_loss, masked_lm_log_probs,

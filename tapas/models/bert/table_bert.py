@@ -29,6 +29,7 @@ def create_model(
     disabled_features=None,
     disable_position_embeddings=False,
     reset_position_index_per_cell=False,
+    proj_value_length=None,
 ):
   """Creates a TABLE BERT model."""
   is_training = (mode == tf.estimator.ModeKeys.TRAIN)
@@ -53,4 +54,5 @@ def create_model(
       token_type_ids=token_type_ids,
       use_position_embeddings=not disable_position_embeddings,
       reset_position_index_per_cell=reset_position_index_per_cell,
+      proj_value_length=proj_value_length,
   )

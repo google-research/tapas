@@ -79,6 +79,12 @@ flags.DEFINE_bool("disable_position_embeddings", False,
 flags.DEFINE_bool("reset_position_index_per_cell", False,
                   "Whether to restart position indexes at every cell.")
 
+flags.DEFINE_integer(
+    "proj_value_length",
+    -1,
+    "If > 0, down-project key and values in self attention computation.",
+)
+
 
 def main(_):
   bert_config = experiment_utils.bert_config_from_flags()
@@ -91,7 +97,8 @@ def main(_):
       use_tpu=FLAGS.use_tpu,
       disabled_features=FLAGS.disabled_features,
       disable_position_embeddings=FLAGS.disable_position_embeddings,
-      reset_position_index_per_cell=FLAGS.reset_position_index_per_cell,)
+      reset_position_index_per_cell=FLAGS.reset_position_index_per_cell,
+      proj_value_length=FLAGS.proj_value_length if FLAGS.proj_value_length > 0 else None,)
   estimator = experiment_utils.build_estimator(model_fn)
 
   if FLAGS.do_train:

@@ -148,6 +148,7 @@ class BertModel(object):
                extra_embeddings=None,
                use_position_embeddings=True,
                reset_position_index_per_cell=False,
+               proj_value_length=None,
                scope=None):
     """Constructor for BertModel.
 
@@ -172,6 +173,8 @@ class BertModel(object):
         embeddings.
       reset_position_index_per_cell: bool. Whether to restart position index
         when a new cell starts.
+      proj_value_length: (optional) int. If set, used to down-project key
+        and value tensors (following https://arxiv.org/pdf/2006.04768.pdf).
       scope: (optional) variable scope. Defaults to "bert".
 
     Raises:
@@ -234,6 +237,7 @@ class BertModel(object):
         self.all_encoder_layers, self.all_attention_probs = transformer_model(
             input_tensor=self.embedding_output,
             attention_mask=attention_mask,
+            input_mask=input_mask,
             custom_attention_layer=custom_attention_layer,
             hidden_size=config.hidden_size,
             num_hidden_layers=config.num_hidden_layers,
@@ -245,7 +249,8 @@ class BertModel(object):
             initializer_range=config.initializer_range,
             do_return_all_layers=True,
             do_return_attention_probs=True,
-            softmax_temperature=config.softmax_temperature)
+            softmax_temperature=config.softmax_temperature,
+            proj_value_length=proj_value_length)
 
       self.sequence_output = self.all_encoder_layers[-1]
       # The "pooler" converts the encoded sequence tensor of shape
@@ -612,7 +617,10 @@ def embedding_postprocessor(input_tensor,
   return output
 
 
-def create_attention_mask_from_input_mask(from_tensor, to_mask):
+def create_attention_mask_from_input_mask(
+    from_tensor,
+    to_mask,
+):
   """Create 3D attention mask from a 2D tensor mask.
 
   Args:
@@ -763,6 +771,7 @@ def dense_layer_2d(input_tensor,
 def attention_layer(from_tensor,
                     to_tensor,
                     attention_mask=None,
+                    input_mask=None,
                     num_attention_heads=1,
                     size_per_head=512,
                     query_act=None,
@@ -773,7 +782,8 @@ def attention_layer(from_tensor,
                     softmax_temperature=1.0,
                     batch_size=None,
                     from_seq_length=None,
-                    to_seq_length=None):
+                    to_seq_length=None,
+                    to_proj_length=None):
   """Performs multi-headed attention from `from_tensor` to `to_tensor`.
 
   This is an implementation of multi-headed attention based on "Attention
@@ -811,6 +821,7 @@ def attention_layer(from_tensor,
       from_seq_length, to_seq_length]. The values should be 1 or 0. The
       attention scores will effectively be set to -infinity for any positions in
       the mask that are 0, and will be unchanged for positions that are 1.
+    input_mask: Only required when using to_proj_length.
     num_attention_heads: int. Number of attention heads.
     size_per_head: int. Size of each attention head.
     query_act: (optional) Activation function for the query transform.
@@ -826,6 +837,7 @@ def attention_layer(from_tensor,
       of the 3D version of the `from_tensor`.
     to_seq_length: (Optional) If the input is 2D, this might be the seq length
       of the 3D version of the `to_tensor`.
+    to_proj_length: (Optional) Int. Down-project keys and values to this length.
 
   Returns:
     float Tensor of shape [batch_size, from_seq_length, num_attention_heads,
@@ -874,6 +886,26 @@ def attention_layer(from_tensor,
                                create_initializer(initializer_range), value_act,
                                "value")
 
+  if to_proj_length is not None:
+    # This gives one project matrix per layer (shared by heads and value/key).
+    # In the paper they also look into other sharing schemes.
+    with tf.variable_scope("proj_seq_length"):
+      proj_kernel = tf.get_variable(
+          name="kernel",
+          shape=[to_seq_length, to_proj_length],
+          initializer=create_initializer(initializer_range))
+
+    input_mask = tf.cast(input_mask, tf.float32)
+    input_mask4d = tf.reshape(input_mask, (batch_size, to_seq_length, 1, 1))
+
+    key_layer = key_layer * input_mask4d
+    # [B, K, N, H]
+    key_layer = tf.einsum("BTNH,TK->BKNH", key_layer, proj_kernel)
+
+    value_layer = value_layer * input_mask4d
+    # [B, K, N, H]
+    value_layer = tf.einsum("BTNH,TK->BKNH", value_layer, proj_kernel)
+
   # Take the dot product between "query" and "key" to get the raw
   # attention scores.
   attention_scores = tf.einsum(
@@ -883,7 +915,7 @@ def attention_layer(from_tensor,
   attention_scores = tf.multiply(attention_scores,
                                  1.0 / math.sqrt(float(size_per_head)))
 
-  if attention_mask is not None:
+  if attention_mask is not None and to_proj_length is None:
     # `attention_mask` = [B, 1, F, T] or [B, H, F, T]
     # Caller can pass a rank 3 tensor for a constand mask or rank 4 for per-head
     # head attention mask.
@@ -929,6 +961,7 @@ def attention_layer(from_tensor,
 
 def transformer_model(input_tensor,
                       attention_mask=None,
+                      input_mask=None,
                       custom_attention_layer=None,
                       hidden_size=768,
                       num_hidden_layers=12,
@@ -940,7 +973,8 @@ def transformer_model(input_tensor,
                       initializer_range=0.02,
                       softmax_temperature=1.0,
                       do_return_all_layers=False,
-                      do_return_attention_probs=False):
+                      do_return_attention_probs=False,
+                      proj_value_length=None):
   """Multi-headed, multi-layer Transformer from "Attention is All You Need".
 
   This is almost an exact implementation of the original Transformer encoder.
@@ -956,6 +990,7 @@ def transformer_model(input_tensor,
     attention_mask: (optional) int32 Tensor of shape [batch_size, seq_length,
       seq_length], with 1 for positions that can be attended to and 0 in
       positions that should not be.
+    input_mask: ...
     custom_attention_layer: (optional) function with the same signature as
       `attention_layer` in order to replace it for sparse alternatives.
     hidden_size: int. Hidden size of the Transformer.
@@ -975,6 +1010,8 @@ def transformer_model(input_tensor,
       layer.
     do_return_attention_probs: Whether to also return all layers self-attention
       matrix.
+    proj_value_length: (optional) int. If set, used to down-project key and
+      value tensors (following https://arxiv.org/pdf/2006.04768.pdf).
 
   Returns:
     float Tensor of shape [batch_size, seq_length, hidden_size], the final
@@ -1012,11 +1049,14 @@ def transformer_model(input_tensor,
               from_tensor=layer_input,
               to_tensor=layer_input,
               attention_mask=attention_mask,
+              input_mask=input_mask,
               num_attention_heads=num_attention_heads,
               size_per_head=attention_head_size,
               attention_probs_dropout_prob=attention_probs_dropout_prob,
               initializer_range=initializer_range,
-              softmax_temperature=softmax_temperature)
+              softmax_temperature=softmax_temperature,
+              to_proj_length=proj_value_length,
+          )
 
         # Run a linear projection of `hidden_size` then add a residual
         # with `layer_input`.

@@ -226,6 +226,12 @@ flags.DEFINE_bool("allow_empty_column_selection", False,
 flags.DEFINE_bool("mask_examples_without_labels", False,
                   "If false, mask examples without answers.")
 
+flags.DEFINE_integer(
+    "proj_value_length",
+    -1,
+    "If > 0, down-project key and values in self attention computation.",
+)
+
 
 def _predict_and_export_metrics(
     mode,
@@ -350,7 +356,8 @@ def main(_):
       disable_per_token_loss=FLAGS.disable_per_token_loss,
       reset_position_index_per_cell=FLAGS.reset_position_index_per_cell,
       span_prediction=tapas_classifier_model.SpanPredictionMode(
-          FLAGS.span_prediction),)
+          FLAGS.span_prediction),
+      proj_value_length=FLAGS.proj_value_length if FLAGS.proj_value_length > 0 else None,)
 
   model_fn = tapas_classifier_model.model_fn_builder(tapas_config)
   estimator = experiment_utils.build_estimator(model_fn)

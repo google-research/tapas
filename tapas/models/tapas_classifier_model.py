@@ -90,6 +90,8 @@ class TapasClassifierConfig:
   reset_position_index_per_cell: Restart position indexes at every cell.
   disable_per_token_loss: Disable any (strong or weak) supervision on cells.
   span_prediction: Span selection mode to use.
+  proj_value_length: Optional. down-project keys and values when computing
+    self-attention. Following https://arxiv.org/pdf/2006.04768.pdf.
   """
 
   bert_config: modeling.BertConfig
@@ -901,7 +903,8 @@ def model_fn_builder(config):
         bert_config=config.bert_config,
         disabled_features=config.disabled_features,
         disable_position_embeddings=config.disable_position_embeddings,
-        reset_position_index_per_cell=config.reset_position_index_per_cell,)
+        reset_position_index_per_cell=config.reset_position_index_per_cell,
+        proj_value_length=config.proj_value_length,)
 
     if config.use_answer_as_supervision:
       answer = tf.squeeze(features["answer"], axis=[1])
