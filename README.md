@@ -5,6 +5,10 @@ in the paper [TAPAS: Weakly Supervised Table Parsing via Pre-training](#how-to-c
 
 ## News
 
+#### 2020/12/17
+
+ * TAPAS is added to [huggingface/transformers](https://github.com/huggingface/transformers) in version 4.1.1. 28 checkpoints are added to the [huggingface model hub](https://huggingface.co/models?filter=tapas) and can be played with using a [custom table question answering widget](https://huggingface.co/google/tapas-base-finetuned-wtq).
+
 #### 2020/10/19
  * Small change to WTQ training example creation
    * Questions with ambiguous cell matches will now be discarded
