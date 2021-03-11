@@ -120,7 +120,7 @@ def main(unused_argv):
       output_dir=FLAGS.output_dir,
       output_suffix=FLAGS.output_suffix,
       conversion_config=conversion_config)
-  beam_runner.run(pipeline).wait_until_finish()
+  beam_runner.run(pipeline)
 
 
 if __name__ == "__main__":

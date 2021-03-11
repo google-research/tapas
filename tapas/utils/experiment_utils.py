@@ -24,6 +24,7 @@ from typing import Iterable, Optional, Text, Tuple, Mapping
 from absl import flags
 from absl import logging
 from tapas.models.bert import modeling
+from tapas.scripts import calc_metrics_utils
 import tensorflow.compat.v1 as tf
 
 
@@ -83,6 +84,12 @@ flags.DEFINE_integer("tpu_iterations_per_loop", 1000,
 flags.DEFINE_integer(
     "num_tpu_cores", None,
     "Only used if `use_tpu` is True. Total number of TPU cores to use.")
+
+flags.DEFINE_integer(
+    "max_eval_count",
+    150_000,
+    "Maximal eval steps to run for.",
+)
 
 # Cloud TPU flags.
 tf.flags.DEFINE_string(
@@ -156,7 +163,10 @@ def build_estimator(model_fn):
   # If TPU is not available, this will fall back to normal Estimator on CPU
   # or GPU.
   return tf.estimator.tpu.TPUEstimator(
-      params={"gradient_accumulation_steps": FLAGS.gradient_accumulation_steps},
+      params={
+          "gradient_accumulation_steps": FLAGS.gradient_accumulation_steps,
+          "drop_remainder": FLAGS.use_tpu,
+          "max_eval_count": FLAGS.max_eval_count,},
       use_tpu=FLAGS.use_tpu,
       model_fn=model_fn,
       config=run_config,
@@ -237,7 +247,9 @@ def save_metrics(
     step,
     metrics,
 ):
-  """Save metrics to file."""
+  """Save metrics to file and TensorBoard."""
+  calc_metrics_utils.write_to_tensorboard(metrics, step,
+                                          os.path.join(model_dir, mode))
   metric_file_path = os.path.join(model_dir, f"{mode}_metrics_{step}.json")
   logging.info("Writing metrics to: %s", metric_file_path)
   with tf.io.gfile.GFile(metric_file_path, "w") as f:

@@ -19,7 +19,7 @@
 import math
 import re
 import struct
-from typing import Iterable, List, Text, Tuple, Union
+from typing import Iterable, List, Text, Tuple, Union, Optional
 import unicodedata
 
 from absl import logging
@@ -250,6 +250,45 @@ def parse_question_id(question_id):
 def get_padded_question_id():
   """"Returns the id that marks examples added for TPU padding."""
   return get_question_id(get_sequence_id(constants.EMPTY_TEXT, "0"), 0)
+
+
+def get_example_id(text):
+  """Returns the example_id from input text——interaction_id or question_id.
+
+  Function finds the prefix of the input text right before the last occurrence
+  of '/' [or '-' if '/' does not exist].
+
+  Example:
+  >>> assert get_example_id('1234-2_0') == '1234'
+  >>> assert get_example_id('abcd-123/10-1_0') == 'abcd-123'
+
+  Args:
+    text: Input text, either interaction_id or question_id
+  """
+  rindex = text.rfind("/")
+  if rindex == -1:
+    rindex = text.rfind("-")
+  if rindex == -1:
+    rindex = len(text)
+  return text[:rindex]
+
+
+def get_interaction_id(question_id):
+  """Returns the interaction_id from input question_id."""
+  rindex = question_id.rfind("_")
+  if rindex == -1:
+    return question_id
+  return question_id[:rindex]
+
+
+def create_interaction_id(example_id,
+                          ith_table = None,
+                          suffix = 0):
+  """Returns an interaction_id created from example_id."""
+  if ith_table is None:
+    return f"{example_id}-{suffix}"
+  else:
+    return f"{example_id}/{ith_table}-{suffix}"
 
 
 def to_float32(v):

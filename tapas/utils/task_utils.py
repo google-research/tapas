@@ -16,7 +16,9 @@
 """Utilities for data conversions for different tasks / datasets."""
 
 import collections
+import json
 import os
+import typing
 from typing import Mapping, Text, Iterable, Optional
 
 from tapas.protos import interaction_pb2
@@ -133,6 +135,11 @@ def create_interactions(
       interactions):
     """Helper function that binds output dir and token_selector arguments."""
     _to_tfrecord(interactions, output_dir, token_selector)
+
+  def to_json(config, output_dir):
+    config_filename = os.path.join(output_dir, 'hybridqa_rc_config.json')
+    with tf.io.gfile.GFile(config_filename, 'w') as fp:
+      json.dump(config.asdict, fp, indent=4, sort_keys=True)
 
   if task == tasks.Task.SQA:
     tsv_dir = input_dir

@@ -19,7 +19,7 @@ import collections
 import copy
 import csv
 import json
-from typing import Mapping, Text, Tuple, Iterable, List
+from typing import Mapping, Text, Tuple, Iterable, List, Any
 
 from absl import logging
 import dataclasses
@@ -193,6 +193,11 @@ class TokenAnswer:
   # Answer score.
   score: float
 
+  @classmethod
+  def from_text(cls, json_str):
+    """Returns a TokenAnswer, parsed from stringified json."""
+    return cls(**json.loads(json_str))
+
 
 def _to_token_answer(
     prediction,
@@ -291,6 +296,7 @@ def _write_prediction(
     output_token_probabilities,
     do_model_aggregation,
     do_model_classification,
+    output_token_answers,
     writer,
 ):
   """Writes a single prediction to TSV."""
@@ -302,22 +308,6 @@ def _write_prediction(
       question_id == text_utils.get_padded_question_id()):
     logging.info("Removing padded example: %s", question_id)
     return
-
-  cell_coords_to_prob = get_mean_cell_probs(prediction)
-
-  answers = _get_token_answers(
-      prediction,
-      cell_classification_threshold,
-  )
-
-  # Select the answers above a classification threshold.
-  answer_coordinates = []
-  for col in range(max_width):
-    for row in range(max_height):
-      cell_prob = cell_coords_to_prob.get((col, row), None)
-      if cell_prob is not None:
-        if cell_prob > cell_classification_threshold:
-          answer_coordinates.append(str((row, col)))
 
   try:
     example_id, annotator, position = text_utils.parse_question_id(question_id)
@@ -331,9 +321,26 @@ def _write_prediction(
       "id": example_id,
       "annotator": annotator,
       "position": position,
-      "answer_coordinates": str(answer_coordinates),
-      "answers": token_answers_to_text(answers),
   }
+  if output_token_answers:
+    cell_coords_to_prob = get_mean_cell_probs(prediction)
+    answers = _get_token_answers(
+        prediction,
+        cell_classification_threshold,
+    )
+    # Select the answers above a classification threshold.
+    answer_coordinates = []
+    for col in range(max_width):
+      for row in range(max_height):
+        cell_prob = cell_coords_to_prob.get((col, row), None)
+        if cell_prob is not None:
+          if cell_prob > cell_classification_threshold:
+            answer_coordinates.append(str((row, col)))
+
+    prediction_to_write.update({
+        "answer_coordinates": str(answer_coordinates),
+        "answers": token_answers_to_text(answers),
+    })
   if output_token_probabilities:
     token_probabilities = [(int(prediction["column_ids"][i]) - 1,
                             int(prediction["row_ids"][i]) - 1, float(prob))
@@ -357,6 +364,13 @@ def token_answers_from_text(text):
   return [TokenAnswer(**answer_dict) for answer_dict in json.loads(text)]
 
 
+def write_json(predictions,
+               output_predict_file):
+
+  with tf.io.gfile.GFile(output_predict_file, "w") as write_file:
+    json.dump(list(predictions), write_file, indent=4, sort_keys=True)
+
+
 def write_predictions(
     predictions,
     output_predict_file,
@@ -364,6 +378,7 @@ def write_predictions(
     do_model_classification,
     cell_classification_threshold,
     output_token_probabilities,
+    output_token_answers,
 ):
   """Writes predictions to an output TSV file.
 
@@ -377,6 +392,7 @@ def write_predictions(
     do_model_classification: Indicates whether to write predicted classes.
     cell_classification_threshold: Threshold for selecting a cell.
     output_token_probabilities: Add token probabilities to output
+    output_token_answers: Add answer coordinates and token answers.
   """
   with tf.io.gfile.GFile(output_predict_file, "w") as write_file:
     writer = None
@@ -385,9 +401,12 @@ def write_predictions(
         "id",
         "annotator",
         "position",
-        "answer_coordinates",
-        "answers",
     ]
+    if output_token_answers:
+      header.extend([
+          "answer_coordinates",
+          "answers",
+      ])
     if output_token_probabilities:
       header.extend(["token_probabilities"])
     if do_model_aggregation:
@@ -405,6 +424,7 @@ def write_predictions(
           output_token_probabilities=output_token_probabilities,
           do_model_classification=do_model_classification,
           do_model_aggregation=do_model_aggregation,
+          output_token_answers=output_token_answers,
           writer=writer,
       )
     # If there are no predictions we should still write the file

@@ -20,7 +20,7 @@ import functools
 import os
 import random
 import time
-from typing import Text, Optional
+from typing import Optional, Text, Mapping
 
 from absl import app
 from absl import flags
@@ -122,6 +122,14 @@ flags.DEFINE_bool('reset_position_index_per_cell', False,
 flags.DEFINE_bool('prune_columns', False,
                   'Use word overlap heuristics to keep most relevant columns.')
 
+flags.DEFINE_bool(
+    'reset_output_cls',
+    False,
+    'If true, reset classification output layer on init from checkpoint. This '
+    'is useful when fine-tuning a classifier model from a model pre-trained '
+    'with a different number of classes.',
+)
+
 _MAX_TABLE_ID = 512
 _MAX_PREDICTIONS_PER_SEQ = 20
 _CELL_CLASSIFICATION_THRESHOLD = 0.5
@@ -149,6 +157,19 @@ class TpuOptions:
   master: Optional[Text]
   num_tpu_cores: int
   iterations_per_loop: int
+
+
+def _create_measurements_for_metrics(
+    metrics,
+    global_step,
+    model_dir,
+    name,
+):
+  """Reports metrics."""
+  for label, value in metrics.items():
+    _print(f'{name} {label}: {value:0.4f}')
+  logdir = os.path.join(model_dir, name)
+  calc_metrics_utils.write_to_tensorboard(metrics, global_step, logdir)
 
 
 def _print(msg):
@@ -409,6 +430,7 @@ def _train_and_predict(
       select_one_column=hparams['select_one_column'],
       allow_empty_column_selection=hparams['allow_empty_column_selection'],
       disable_position_embeddings=False,
+      reset_output_cls=FLAGS.reset_output_cls,
       reset_position_index_per_cell=FLAGS.reset_position_index_per_cell)
 
   model_fn = tapas_classifier_model.model_fn_builder(tapas_config)
@@ -506,6 +528,8 @@ def _train_and_predict(
       if not loop_predict or current_step >= tapas_config.num_train_steps:
         _print(f'Evaluation finished after training step {current_step}.')
         break
+
+      prev_checkpoint = checkpoint
 
   else:
     raise ValueError(f'Unexpected mode: {mode}.')
@@ -607,7 +631,8 @@ def _predict_for_set(
       do_model_aggregation=do_model_aggregation,
       do_model_classification=do_model_classification,
       cell_classification_threshold=_CELL_CLASSIFICATION_THRESHOLD,
-      output_token_probabilities=False)
+      output_token_probabilities=False,
+      output_token_answers=True)
   tf.io.gfile.copy(prediction_file, other_prediction_file, overwrite=True)
 
 
@@ -638,7 +663,7 @@ def _predict_sequence_for_set(
       do_model_classification=False,
       cell_classification_threshold=_CELL_CLASSIFICATION_THRESHOLD,
       output_token_probabilities=False,
-  )
+      output_token_answers=True)
   tf.io.gfile.copy(prediction_file, other_prediction_file, overwrite=True)
 
 
@@ -651,6 +676,7 @@ def _eval(
   """Evaluate dev and test predictions."""
   for test_set in TestSet:
     _eval_for_set(
+        model_dir=model_dir,
         name=test_set.name.lower(),
         task=task,
         interaction_file=_get_test_interactions_file(
@@ -669,6 +695,7 @@ def _eval(
     )
     if task == tasks.Task.SQA:
       _eval_for_set(
+          model_dir=model_dir,
           name=f'{test_set.name.lower()}_seq',
           task=task,
           interaction_file=_get_test_interactions_file(
@@ -688,6 +715,7 @@ def _eval(
 
 
 def _eval_for_set(
+    model_dir,
     name,
     task,
     interaction_file,
@@ -713,10 +741,22 @@ def _eval_for_set(
         denotation_errors_path=None,
         predictions_file_name=None,
     )
-    _print(f'{name} denotation accuracy: {denotation_accuracy:0.4f}')
+    if global_step is not None:
+      _create_measurements_for_metrics(
+          {'denotation_accuracy': denotation_accuracy},
+          global_step=global_step,
+          model_dir=model_dir,
+          name=name,
+      )
   elif task == tasks.Task.TABFACT:
     accuracy = calc_metrics_utils.calc_classification_accuracy(test_examples)
-    _print(f'{name} accuracy: {accuracy:0.4f}')
+    if global_step is not None:
+      _create_measurements_for_metrics(
+          {'accuracy': accuracy},
+          global_step=global_step,
+          model_dir=model_dir,
+          name=name,
+      )
   else:
     raise ValueError(f'Unknown task: {task.name}')
 

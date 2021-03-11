@@ -15,7 +15,7 @@
 # Lint as: python3
 """Contains dataset utility functions."""
 
-from typing import Iterable, Text, Callable, Any, Mapping, Optional
+from typing import Iterable, Text, Callable, Any, Mapping
 import tensorflow.compat.v1 as tf
 
 
@@ -30,7 +30,6 @@ def read_dataset(
     compression_type,
     is_training,
     params,
-    max_eval_count = 150_000,
 ):
   """Returns an input_fn that can be used with the tf.Estimator API."""
   with tf.variable_scope(name):
@@ -60,6 +59,7 @@ def read_dataset(
     if is_training:
       dataset = dataset.shuffle(1024)
     else:
+      max_eval_count = params.get("max_eval_count")
       if max_eval_count is not None:
         dataset = dataset.take(max_eval_count)
 
@@ -70,7 +70,7 @@ def read_dataset(
             parse_fn,
             batch_size=batch_size,
             num_parallel_calls=tf.data.experimental.AUTOTUNE,
-            drop_remainder=is_training))
+            drop_remainder=params.get("drop_remainder", False) or is_training))
     dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
     return dataset
 

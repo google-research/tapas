@@ -732,8 +732,7 @@ class ToPretrainingTensorflowExample(ToTensorflowExampleBase):
     ]
     self._vocab_words = list(self._tokenizer.get_vocab())
 
-  def _to_example(self,
-                  table,
+  def _to_example(self, table,
                   instance):
     """Creates TF example from TrainingInstance."""
 
@@ -793,7 +792,12 @@ class ToPretrainingTensorflowExample(ToTensorflowExampleBase):
       tokens, segment_ids, column_ids, row_ids = self._serialize_text(
           question_tokens)
     else:
-      if not question_tokens:
+      if (not question_tokens or
+          len(question_tokens) < self._min_question_length):
+        beam_metrics.Metrics.counter(
+            _NS,
+            f'Remove question below the min length {self._min_question_length}'
+        ).inc()
         return None
       if random_table is not None:
         logging.log_every_n(logging.INFO,

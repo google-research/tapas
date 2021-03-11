@@ -14,6 +14,8 @@
 # limitations under the License.
 # Lint as: python3
 
+import os
+import tempfile
 from typing import Iterator, Tuple
 from absl.testing import parameterized
 
@@ -100,11 +102,13 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
         params={
             "gradient_accumulation_steps":
                 params.get("gradient_accumulation_steps", 1),
+            "fail_if_missing_variables_in_checkpoint":
+                params.get("fail_if_missing_variables_in_checkpoint", False)
         },
         use_tpu=params["use_tpu"],
         model_fn=model_fn,
         config=tf.estimator.tpu.RunConfig(
-            model_dir=self.get_temp_dir(),
+            model_dir=tempfile.mkdtemp(dir=self.get_temp_dir()),
             save_summary_steps=params["num_train_steps"],
             save_checkpoints_steps=params["num_train_steps"]),
         train_batch_size=params["batch_size"],
@@ -113,18 +117,32 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
 
     return estimator
 
-  @parameterized.named_parameters(
-      ("no_checkpoint_no_aggregation",) + bool_tuple(6, []),
-      ("with_checkpoint_no_agg",) + bool_tuple(6, [0]),
-      ("no_checkpoint_with_agg",) + bool_tuple(6, [1]),
-      ("with_checkpoint_with_agg",) + bool_tuple(6, [0, 1]),
-      ("agg_with_answer_as_supervision",) + bool_tuple(6, [0, 1, 2]),
-      ("agg_with_answer_loss_normalization",) + bool_tuple(6, [0, 1, 2, 3]),
-      ("no_checkpoint_no_agg_one_column",) + bool_tuple(6, [4]),
-      ("gradient_accumulation",) + bool_tuple(6, [5]))
+  @parameterized.parameters(
+      {},
+      dict(load_checkpoint=True),
+      dict(do_model_aggregation=True),
+      dict(load_checkpoint=True, do_model_aggregation=True),
+      dict(
+          load_checkpoint=True,
+          do_model_aggregation=True,
+          use_answer_as_supervision=True),
+      dict(
+          load_checkpoint=True,
+          do_model_aggregation=True,
+          use_answer_as_supervision=True,
+          use_normalized_answer_loss=True),
+      dict(select_one_column=True),
+      dict(do_gradient_accumulation=True),
+  )
   def test_build_model_train_and_evaluate(
-      self, load_checkpoint, do_model_aggregation, use_answer_as_supervision,
-      use_normalized_answer_loss, select_one_column, do_gradient_accumulation):
+      self,
+      load_checkpoint=False,
+      do_model_aggregation=False,
+      use_answer_as_supervision=False,
+      use_normalized_answer_loss=False,
+      select_one_column=False,
+      do_gradient_accumulation=False,
+  ):
     """Tests that we can train, save, load and evaluate the model."""
     params = dict(
         batch_size=2,
@@ -173,8 +191,10 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
 
     estimator.train(_input_fn, max_steps=params["num_train_steps"])
 
+
     if load_checkpoint:
-      params.update({"init_checkpoint": self.get_temp_dir()})
+      params["init_checkpoint"] = estimator.model_dir
+      params["fail_if_missing_variables_in_checkpoint"] = True
       estimator = self._create_estimator(params)
       estimator.train(_input_fn, max_steps=params["num_train_steps"])
 

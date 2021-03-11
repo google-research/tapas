@@ -51,6 +51,23 @@ class PredictionUtilsTest(absltest.TestCase):
                      calc_metrics_utils._collect_cells_from_table({(0, 0)},
                                                                   frame))
 
+  def test_iterate_predictions(self):
+    filepath = tempfile.mktemp(suffix='.tsv')
+    predictions = [
+        {
+            'logits_cls': 0.1
+        },
+        {
+            'logits_cls': [3.0, 4.0]
+        },
+    ]
+    with tf.io.gfile.GFile(filepath, mode='w') as writer:
+      writer.write('logits_cls\n')
+      writer.write('0.1\n')
+      writer.write('[3 4]\n')
+    actual_predictions = list(prediction_utils.iterate_predictions(filepath))
+    self.assertEqual(predictions, actual_predictions)
+
 
 if __name__ == '__main__':
   absltest.main()

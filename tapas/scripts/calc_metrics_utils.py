@@ -17,7 +17,7 @@
 
 import math
 import os
-from typing import Any, Dict, List, Optional, Set, Text, Tuple
+from typing import Any, Dict, List, Optional, Set, Text, Tuple, Mapping
 
 from absl import logging
 import dataclasses
@@ -48,6 +48,19 @@ class Example:
   weight: float = 1.0
   gold_class_index: Optional[int] = None
   pred_class_index: Optional[int] = None
+
+
+def write_to_tensorboard(
+    metrics,
+    global_step,
+    logdir,
+):
+  """Writes metrics to tensorbaord."""
+  with tf.summary.FileWriter(logdir) as writer:
+    for label, value in metrics.items():
+      summary = tf.Summary(
+          value=[tf.Summary.Value(tag=label, simple_value=value)])
+      writer.add_summary(summary, global_step)
 
 
 def read_data_examples_from_interactions(

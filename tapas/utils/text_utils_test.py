@@ -16,7 +16,8 @@
 # coding=utf8
 
 import string
-
+from typing import Optional, Text
+from absl import logging
 from absl.testing import absltest
 from absl.testing import parameterized
 from tapas.utils import constants
@@ -113,11 +114,28 @@ class TextUtilsTest(parameterized.TestCase, absltest.TestCase):
       ("ABCfhg", 6),
       ("123456789", 10),
       ("".join(string.punctuation), 32),
-      ("特殊字母Специальные письма", 64),
+      ("特殊字母Специальные письма", 22),
   )
   def test_str_to_ints(self, text, length):
     ints = text_utils.str_to_ints(text, length)
     self.assertLen(ints, length)
+    logging.info("ints: %s %s ", ints, text)
+    self.assertEqual(text_utils.ints_to_str(ints), text)
+
+  @parameterized.parameters(
+      ("", [0]),
+      ("ABCfhg", [66, 67, 68, 103, 105, 104]),
+      ("123456789", [50, 51, 52, 53, 54, 55, 56, 57, 58, 0]),
+      ("".join(string.punctuation), [
+          34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 59, 60,
+          61, 62, 63, 64, 65, 92, 93, 94, 95, 96, 97, 124, 125, 126, 127
+      ]),
+      ("特殊字母Специальные письма", [
+          29306, 27531, 23384, 27598, 1058, 1088, 1078, 1095, 1081, 1073, 1084,
+          1101, 1086, 1100, 1078, 33, 1088, 1081, 1090, 1101, 1085, 1073
+      ]),
+  )
+  def test_ints_to_str(self, text, ints):
     self.assertEqual(text_utils.ints_to_str(ints), text)
 
   @parameterized.parameters(
@@ -155,6 +173,38 @@ class TextUtilsTest(parameterized.TestCase, absltest.TestCase):
     valid_text, is_invalid = text_utils.filter_invalid_unicode(text)
     self.assertFalse(is_invalid)
     self.assertEqual(valid_text, text)
+
+  @parameterized.named_parameters(
+      ("interaction_id_with_slash", "1234/0-1", "1234"),
+      ("interaction_id_without_slash", "123df-1", "123df"),
+      ("question_id_with_slash_", "1234-abc/12-0_0", "1234-abc"),
+      ("question_id_without_slash", "123df-1_0", "123df"),
+      ("example_id", "1da3f", "1da3f"),
+  )
+  def test_get_example_id(self, input_text, example_id):
+    self.assertEqual(text_utils.get_example_id(input_text), example_id)
+
+  @parameterized.named_parameters(
+      ("no_ith_table_1", "1234", None, 0, "1234-0"),
+      ("no_ith_table_2", "4d3f", None, 3, "4d3f-3"),
+      ("ith_table_1", "balloon", 0, 0, "balloon/0-0"),
+      ("ith_table_2", "l33tc0d3", 12, 1, "l33tc0d3/12-1"),
+  )
+  def test_interaction_id_creation(self, example_id,
+                                   ith_table, suffix,
+                                   interaction_id):
+    self.assertEqual(
+        text_utils.create_interaction_id(example_id, ith_table, suffix),
+        interaction_id)
+
+  @parameterized.named_parameters(
+      ("numeric_1", "1234", "1234-0"),
+      ("alphabetic", "4d3f", "4d3f-0"),
+      ("alphanumeric", "d13e8", "d13e8-0"),
+  )
+  def test_default_creation(self, example_id, interaction_id):
+    self.assertEqual(
+        text_utils.create_interaction_id(example_id), interaction_id)
 
 
 if __name__ == "__main__":

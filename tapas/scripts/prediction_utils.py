@@ -18,11 +18,14 @@
 import ast
 import csv
 import os
-from typing import Any, Iterable, Set, Text, Tuple, Mapping
+from typing import Any, Iterable, Set, Text, Tuple, MutableMapping
 
+import numpy as np
 import pandas as pd
+
 from tapas.protos import interaction_pb2
 import tensorflow.compat.v1 as tf
+
 
 
 def parse_coordinates(raw_coordinates):
@@ -31,12 +34,19 @@ def parse_coordinates(raw_coordinates):
 
 
 # TODO(thomasmueller) Return a dataclass here.
-def iterate_predictions(prediction_file):
+def iterate_predictions(
+    prediction_file):
+  """Iterates through a TSV prediction file."""
   with tf.io.gfile.GFile(prediction_file, 'r') as f:
     reader = csv.DictReader(f, delimiter='\t')
     for row in reader:
       if 'logits_cls' in row:
-        row['logits_cls'] = float(row['logits_cls'])
+        # Only for binary problems the logit will be a float scalar.
+        if row['logits_cls'].startswith('['):
+          row['logits_cls'] = np.fromstring(
+              row['logits_cls'][1:-1], sep=' ').tolist()
+        else:
+          row['logits_cls'] = float(row['logits_cls'])
       yield row
 
 

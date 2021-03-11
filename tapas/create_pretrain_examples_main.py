@@ -104,7 +104,7 @@ def main(argv):
       min_num_rows=FLAGS.min_num_rows,
       min_num_columns=FLAGS.min_num_columns,
   )
-  beam_runner.run(pipeline).wait_until_finish()
+  beam_runner.run(pipeline)
 
 
 if __name__ == "__main__":

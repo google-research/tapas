@@ -42,6 +42,8 @@ def _convert_single_wtq(interaction_file, prediction_file,
       interaction_id = prediction['id']
       if interaction_id in missing_interaction_ids:
         missing_interaction_ids.remove(interaction_id)
+      else:
+        continue
 
       coordinates = prediction_utils.parse_coordinates(
           prediction['answer_coordinates'])

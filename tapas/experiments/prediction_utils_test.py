@@ -323,6 +323,7 @@ class PredictionUtilsTest(tf.test.TestCase, parameterized.TestCase):
         do_model_classification=do_model_classification,
         cell_classification_threshold=cell_classification_threshold,
         output_token_probabilities=True,
+        output_token_answers=True,
     )
     with open(output_predict_file, 'r') as inputfile:
       rows = list(csv.DictReader(inputfile, delimiter='\t'))

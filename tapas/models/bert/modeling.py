@@ -144,6 +144,7 @@ class BertModel(object):
                attention_mask=None,
                token_weights=None,
                custom_attention_layer=None,
+               custom_transformer_layer=None,
                token_type_ids=None,
                extra_embeddings=None,
                use_position_embeddings=True,
@@ -164,6 +165,8 @@ class BertModel(object):
         [batch_size, seq_length] in [0,1].
       custom_attention_layer: (optional) function with the same signature as
         `attention_layer` in order to replace it for sparse alternatives.
+      custom_transformer_layer: (optional) function with the same signature as
+        `transformer_model` in order to replace for sparse alternatives.
       token_type_ids: (optional) nested structure of int32 Tensors of shape
         [batch_size, seq_length].
       extra_embeddings: (optional) float32 Tensor of shape [batch_size, seq_len,
@@ -232,9 +235,11 @@ class BertModel(object):
           attention_mask = create_attention_mask_from_input_mask(
               input_ids, input_mask)
 
+        transformer_layer = custom_transformer_layer or transformer_model
+
         # Run the stacked transformer.
         # `sequence_output` shape = [batch_size, seq_length, hidden_size].
-        self.all_encoder_layers, self.all_attention_probs = transformer_model(
+        self.all_encoder_layers, self.all_attention_probs = transformer_layer(
             input_tensor=self.embedding_output,
             attention_mask=attention_mask,
             input_mask=input_mask,
@@ -369,13 +374,15 @@ def get_assignment_map_from_checkpoint(tvars, init_checkpoint, scope=None):
 
   init_vars = tf.train.list_variables(init_checkpoint)
 
+  # Map from names in the checkpoint to names in the graph
   assignment_map = collections.OrderedDict()
   for x in init_vars:
     (short_name, var) = (x[0], x[1])
+    # Name in the graph
     name = f"{scope}/{short_name}" if scope else short_name
     if name not in name_to_variable:
       continue
-    assignment_map[short_name] = name
+    assignment_map[short_name] = name_to_variable[name]
     initialized_variable_names[name] = 1
     initialized_variable_names[name + ":0"] = 1
 

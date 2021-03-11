@@ -17,7 +17,7 @@
 
 import enum
 import json
-from typing import Iterable, Text, Optional, List
+from typing import Iterable, Text, Optional, List, Set
 
 import dataclasses
 
@@ -92,6 +92,7 @@ class TapasClassifierConfig:
   span_prediction: Span selection mode to use.
   proj_value_length: Optional. down-project keys and values when computing
     self-attention. Following https://arxiv.org/pdf/2006.04768.pdf.
+  reset_output_cls: If true, reset classification output layer on init from cp.
   """
 
   bert_config: modeling.BertConfig
@@ -128,6 +129,7 @@ class TapasClassifierConfig:
   disable_per_token_loss: bool = False
   span_prediction: SpanPredictionMode = SpanPredictionMode.NONE
   proj_value_length: Optional[int] = None
+  reset_output_cls: bool = False
 
   def to_json_string(self):
     """Serializes this instance to a JSON string."""
@@ -162,6 +164,7 @@ class TapasClassifierConfig:
     if for_prediction:
       # Disable training-only option to reduce input requirements.
       json_object["use_answer_as_supervision"] = False
+      json_object["init_checkpoint"] = None
     return TapasClassifierConfig(**json_object)
 
   @classmethod
@@ -701,16 +704,7 @@ def _get_classification_outputs(
     dist_per_token = tfp.distributions.Bernoulli(logits=logits)
 
     selection_loss_per_example = None
-    if not config.select_one_column:
-      weight = tf.where(
-          label_ids == 0, tf.ones_like(label_ids, dtype=tf.float32),
-          config.positive_weight *\
-          tf.ones_like(label_ids, dtype=tf.float32))
-      selection_loss_per_token = -dist_per_token.log_prob(label_ids) * weight
-      selection_loss_per_example = (
-          tf.reduce_sum(selection_loss_per_token * input_mask_float, axis=1) /
-          (tf.reduce_sum(input_mask_float, axis=1) + _EPSILON_ZERO_DIVISION))
-    else:
+    if config.select_one_column:
       selection_loss_per_example, logits = _single_column_cell_selection_loss(
           token_logits=logits,
           column_logits=column_logits,
@@ -719,6 +713,15 @@ def _get_classification_outputs(
           col_index=col_index,
           cell_mask=cell_mask)
       dist_per_token = tfp.distributions.Bernoulli(logits=logits)
+    else:
+      weight = tf.where(
+          label_ids == 0, tf.ones_like(label_ids, dtype=tf.float32),
+          config.positive_weight *\
+          tf.ones_like(label_ids, dtype=tf.float32))
+      selection_loss_per_token = -dist_per_token.log_prob(label_ids) * weight
+      selection_loss_per_example = (
+          tf.reduce_sum(selection_loss_per_token * input_mask_float, axis=1) /
+          (tf.reduce_sum(input_mask_float, axis=1) + _EPSILON_ZERO_DIVISION))
 
     ### Logits for the aggregation function
     #########################################
@@ -843,8 +846,15 @@ def _calculate_eval_metrics_fn(
     predictions_cls = tf.argmax(logits_cls, axis=-1, output_type=tf.int32)
     accuracy_cls = tf.metrics.accuracy(
         labels=classification_class_index, predictions=predictions_cls)
+    mean_per_class_accuracy_cls = tf.metrics.mean_per_class_accuracy(
+        labels=classification_class_index,
+        predictions=predictions_cls,
+        num_classes=logits_cls.shape[-1].value)
     metrics.update({
-        "eval_classification_accuracy": accuracy_cls,
+        "eval_classification_accuracy":
+            accuracy_cls,
+        "eval_mean_per_class_classification_accuracy":
+            mean_per_class_accuracy_cls,
     })
 
   if logits_aggregation is not None:
@@ -867,8 +877,20 @@ def _calculate_eval_metrics_fn(
   return metrics
 
 
-def model_fn_builder(config):
-  """Returns `model_fn` closure for TPUEstimator."""
+def model_fn_builder(
+    config,
+    custom_prediction_keys = None,
+):
+  """Returns `model_fn` closure for TPUEstimator.
+
+  Args:
+   config: Tapas config.
+   custom_prediction_keys: Names of the features to export in predict mode. This
+     allows fine-grained control over which features to export.
+
+  Returns:
+    A model_fn
+  """
 
   def model_fn(features, labels, mode, params):
     """The `model_fn` for TPUEstimator."""
@@ -935,6 +957,11 @@ def model_fn_builder(config):
 
 
     tvars = tf.trainable_variables()
+    if config.reset_output_cls:
+      tvars = [
+          tvar for tvar in tvars if ("output_weights_cls" not in tvar.name and
+                                     "output_bias_cls" not in tvar.name)
+      ]
     initialized_variable_names = set()
     scaffold_fn = None
     init_from_checkpoints = []
@@ -963,11 +990,16 @@ def model_fn_builder(config):
         for init_checkpoint, assignment_map in init_from_checkpoints:
           tf.train.init_from_checkpoint(init_checkpoint, assignment_map)
 
+    fail_if_missing = init_from_checkpoints and params.get(
+        "fail_if_missing_variables_in_checkpoint", False)
     tf.logging.info("**** Trainable Variables ****")
     for var in tvars:
       init_string = ""
       if var.name in initialized_variable_names:
         init_string = ", *INIT_FROM_CKPT*"
+      elif fail_if_missing:
+        if "layer_norm" not in var.name and "LayerNorm" not in var.name:
+          tf.logging.fatal("Variable not found in checkpoint: %s", var.name)
       tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape,
                       init_string)
 
@@ -1050,6 +1082,9 @@ def model_fn_builder(config):
       if outputs.span_indexes is not None and outputs.span_logits is not None:
         predictions.update({"span_indexes": outputs.span_indexes})
         predictions.update({"span_logits": outputs.span_logits})
+
+      if custom_prediction_keys:
+        predictions = {key: predictions[key] for key in custom_prediction_keys}
       output_spec = tf.estimator.tpu.TPUEstimatorSpec(
           mode=mode, predictions=predictions, scaffold_fn=scaffold_fn)
     return output_spec
