@@ -89,7 +89,7 @@ def create_optimizer(loss,
   if gradient_accumulation_steps > 1:
     optimizer = GradientAccumulationOptimizer(
         optimizer,
-        steps=-gradient_accumulation_steps,
+        steps=gradient_accumulation_steps,
         grad_clipping=grad_clipping)
 
   if use_tpu:
