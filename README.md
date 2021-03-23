@@ -8,7 +8,7 @@ in the paper [TAPAS: Weakly Supervised Table Parsing via Pre-training](#how-to-c
 
 #### 2021/03/23
 
- * The upcoming NAACL 2021 short paper ([Open Domain Question Answering over Tables via Dense Retrieval](https://arxiv.org/abs/2103.12011)) extends the TAPAS capabilities to table retrieval and open-domain QA. We are planning to release the new models and code soon.
+ * The upcoming NAACL 2021 short paper [Open Domain Question Answering over Tables via Dense Retrieval](https://arxiv.org/abs/2103.12011) extends the TAPAS capabilities to table retrieval and open-domain QA. We are planning to release the new models and code soon.
 
 #### 2020/12/17
 
