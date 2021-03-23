@@ -5,6 +5,11 @@ in the paper [TAPAS: Weakly Supervised Table Parsing via Pre-training](#how-to-c
 
 ## News
 
+
+#### 2021/03/23
+
+ * The upcoming NAACL 2021 short paper ([Open Domain Question Answering over Tables via Dense Retrieval](https://arxiv.org/abs/2103.12011)) extends the TAPAS capabilities to table retrieval and open-domain QA. We are planning to release the new models and code soon.
+
 #### 2020/12/17
 
  * TAPAS is added to [huggingface/transformers](https://github.com/huggingface/transformers) in version 4.1.1. 28 checkpoints are added to the [huggingface model hub](https://huggingface.co/models?filter=tapas) and can be played with using a [custom table question answering widget](https://huggingface.co/google/tapas-base-finetuned-wtq).
