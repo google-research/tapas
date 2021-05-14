@@ -1,0 +1,162 @@
+# proto-file: third_party/py/tapas/protos/interaction.proto
+# proto-message: language.tapas.Interaction
+id: "nt_1135_0"
+table: {
+  columns: {
+    text: "Team"
+  }
+  columns: {
+    text: "County"
+  }
+  columns: {
+    text: "Wins"
+  }
+  columns: {
+    text: "Years won"
+  }
+  rows: {
+    cells: {
+      text: "Greystones"
+    }
+    cells: {
+      text: "Wicklow"
+    }
+    cells: {
+      text: "1"
+    }
+    cells: {
+      text: "2011"
+    }
+  }
+  rows: {
+    cells: {
+      text: "Ballymore Eustace"
+    }
+    cells: {
+      text: "Kildare"
+    }
+    cells: {
+      text: "1"
+    }
+    cells: {
+      text: "2010"
+    }
+  }
+  rows: {
+    cells: {
+      text: "Maynooth"
+    }
+    cells: {
+      text: "Kildare"
+    }
+    cells: {
+      text: "1"
+    }
+    cells: {
+      text: "2009"
+    }
+  }
+  rows: {
+    cells: {
+      text: "Ballyroan Abbey"
+    }
+    cells: {
+      text: "Laois"
+    }
+    cells: {
+      text: "1"
+    }
+    cells: {
+      text: "2008"
+    }
+  }
+  rows: {
+    cells: {
+      text: "Fingal Ravens"
+    }
+    cells: {
+      text: "Dublin"
+    }
+    cells: {
+      text: "1"
+    }
+    cells: {
+      text: "2007"
+    }
+  }
+  rows: {
+    cells: {
+      text: "Confey"
+    }
+    cells: {
+      text: "Kildare"
+    }
+    cells: {
+      text: "1"
+    }
+    cells: {
+      text: "2006"
+    }
+  }
+  rows: {
+    cells: {
+      text: "Crettyard"
+    }
+    cells: {
+      text: "Laois"
+    }
+    cells: {
+      text: "1"
+    }
+    cells: {
+      text: "2005"
+    }
+  }
+  rows: {
+    cells: {
+      text: "Wolfe Tones"
+    }
+    cells: {
+      text: "Meath"
+    }
+    cells: {
+      text: "1"
+    }
+    cells: {
+      text: "2004"
+    }
+  }
+  rows: {
+    cells: {
+      text: "Dundalk Gaels"
+    }
+    cells: {
+      text: "Louth"
+    }
+    cells: {
+      text: "1"
+    }
+    cells: {
+      text: "2003"
+    }
+  }
+}
+questions: {
+  original_text: "what county is the team that won in 2009 from?"
+  answer: {
+    answer_coordinates: {
+      row_index: 2
+      column_index: 1
+    }
+  }
+}
+questions: {
+  original_text: "what is the teams name?"
+  answer: {
+    answer_coordinates: {
+      row_index: 2
+      column_index: 0
+    }
+    aggregation_function: SUM
+  }
+}

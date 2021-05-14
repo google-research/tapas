@@ -15,6 +15,7 @@
 # Lint as: python3
 """TAPAS BERT model utils for classification."""
 
+from typing import Dict, Text, Tuple, Optional
 from tapas.models import segmented_tensor
 import tensorflow.compat.v1 as tf
 
@@ -25,6 +26,21 @@ CLOSE_ENOUGH_TO_LOG_ZERO = -10000.0
 def classification_initializer():
   """Classification layer initializer."""
   return tf.truncated_normal_initializer(stddev=0.02)
+
+
+def extract_answer_from_features(
+    features, use_answer_as_supervision
+):
+  """Extracts the answer, numeric_values, numeric_values_scale."""
+  if use_answer_as_supervision:
+    answer = tf.squeeze(features["answer"], axis=[1])
+    numeric_values = features["numeric_values"]
+    numeric_values_scale = features["numeric_values_scale"]
+  else:
+    answer = None
+    numeric_values = None
+    numeric_values_scale = None
+  return answer, numeric_values, numeric_values_scale
 
 
 def compute_token_logits(output_layer, temperature,

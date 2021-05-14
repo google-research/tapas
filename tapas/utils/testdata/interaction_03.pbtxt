@@ -1,0 +1,45 @@
+# proto-file: third_party/py/tapas/protos/interaction.proto
+# proto-message: language.tapas.Interaction
+id: "key"
+table: {
+  columns: {
+    text: "A"
+  }
+  columns: {
+    text: "B"
+  }
+  rows: {
+    cells: {
+      text: "1"
+      numeric_value {
+        float_value: 1.0
+      }
+    }
+    cells: {
+      text: "1"
+      numeric_value {
+        float_value: 1.0
+      }
+    }
+  }
+  rows: {
+    cells: {
+      text: "1"
+      numeric_value {
+        float_value: 1.0
+      }
+    }
+    cells: {
+      text: "1"
+      numeric_value {
+        float_value: 1.0
+      }
+    }
+  }
+}
+questions {
+  original_text: "query"
+  answer {
+    float_value: 2.0
+  }
+}

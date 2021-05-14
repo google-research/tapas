@@ -1,0 +1,400 @@
+# proto-file: third_party/py/tapas/protos/interaction.proto
+# proto-message: language.tapas.Interaction
+table {
+  columns {
+    text: "Title"
+  }
+  columns {
+    text: "Year"
+  }
+  columns {
+    text: "Artist ( s )"
+  }
+  columns {
+    text: "Album"
+  }
+  columns {
+    text: "Credits"
+  }
+  columns {
+    text: "Written with"
+  }
+  columns {
+    text: "Produced with"
+  }
+  rows {
+    cells {
+      text: "`` Keep It Cool \'\'"
+      [language.tapas.AnnotatedText.annotated_cell_ext] {
+        annotations {
+          begin_byte_index: 0
+          end_byte_index: 18
+          identifier: "cell_text: `` Keep It Cool \'\'"
+        }
+      }
+    }
+    cells {
+      text: "2013"
+    }
+    cells {
+      text: "Kelela"
+    }
+    cells {
+      text: "Cut 4 Me"
+    }
+    cells {
+      text: "Producer"
+    }
+    cells {
+      text: ""
+    }
+    cells {
+      text: ""
+    }
+  }
+  rows {
+    cells {
+      text: "`` Cherry Coffee \'\'"
+    }
+    cells {
+      text: "2013"
+    }
+    cells {
+      text: "Kelela"
+    }
+    cells {
+      text: "Cut 4 Me"
+    }
+    cells {
+      text: "Producer"
+    }
+    cells {
+      text: ""
+    }
+    cells {
+      text: ""
+    }
+  }
+  rows {
+    cells {
+      text: "`` INTRLD \'\'"
+    }
+    cells {
+      text: "2016"
+    }
+    cells {
+      text: "Rosie Lowe"
+    }
+    cells {
+      text: "Control"
+    }
+    cells {
+      text: "Co-writer / Producer"
+    }
+    cells {
+      text: "Rosie Lowe"
+    }
+    cells {
+      text: ""
+    }
+  }
+  rows {
+    cells {
+      text: "`` I \'ll Be Gone \'\'"
+    }
+    cells {
+      text: "2016"
+    }
+    cells {
+      text: "Rosie Lowe"
+    }
+    cells {
+      text: "Control"
+    }
+    cells {
+      text: "Co-writer / Co-producer"
+    }
+    cells {
+      text: "Rosie Lowe"
+    }
+    cells {
+      text: "Dave Okumu"
+    }
+  }
+  rows {
+    cells {
+      text: "`` LMK \'\'"
+    }
+    cells {
+      text: "2017"
+    }
+    cells {
+      text: "Kelela"
+    }
+    cells {
+      text: "Take Me Apart"
+    }
+    cells {
+      text: "Producer"
+    }
+    cells {
+      text: ""
+    }
+    cells {
+      text: "Kwes"
+    }
+  }
+  rows {
+    cells {
+      text: "`` Frontline \'\'"
+    }
+    cells {
+      text: "2017"
+    }
+    cells {
+      text: "Kelela"
+    }
+    cells {
+      text: "Take Me Apart"
+    }
+    cells {
+      text: "Producer"
+    }
+    cells {
+      text: ""
+    }
+    cells {
+      text: ""
+    }
+  }
+  rows {
+    cells {
+      text: "`` Waitin \' \'\'"
+    }
+    cells {
+      text: "2017"
+    }
+    cells {
+      text: "Kelela"
+    }
+    cells {
+      text: "Take Me Apart"
+    }
+    cells {
+      text: "Producer"
+    }
+    cells {
+      text: ""
+    }
+    cells {
+      text: "Ariel Rechtshaid , Kwes"
+    }
+  }
+  rows {
+    cells {
+      text: "`` Take Me Apart \'\'"
+    }
+    cells {
+      text: "2017"
+    }
+    cells {
+      text: "Kelela"
+    }
+    cells {
+      text: "Take Me Apart"
+    }
+    cells {
+      text: "Producer"
+    }
+    cells {
+      text: ""
+    }
+    cells {
+      text: "Al Shux , Ariel Rechtshaid , Arca , Loric Sih , Kwes"
+    }
+  }
+  rows {
+    cells {
+      text: "`` Truth or Dare \'\'"
+    }
+    cells {
+      text: "2017"
+    }
+    cells {
+      text: "Kelela"
+    }
+    cells {
+      text: "Take Me Apart"
+    }
+    cells {
+      text: "Producer"
+    }
+    cells {
+      text: ""
+    }
+    cells {
+      text: "Kwes"
+    }
+  }
+  rows {
+    cells {
+      text: "`` Turn to Dust \'\'"
+    }
+    cells {
+      text: "2017"
+    }
+    cells {
+      text: "Kelela"
+    }
+    cells {
+      text: "Take Me Apart"
+    }
+    cells {
+      text: "Co-writer"
+    }
+    cells {
+      text: "Kelela Mizanekristos , Alejandro Ghersi , Romy Madley Croft"
+    }
+    cells {
+      text: ""
+    }
+  }
+  rows {
+    cells {
+      text: "`` Bluff \'\'"
+    }
+    cells {
+      text: "2017"
+    }
+    cells {
+      text: "Kelela"
+    }
+    cells {
+      text: "Take Me Apart"
+    }
+    cells {
+      text: "Producer"
+    }
+    cells {
+      text: ""
+    }
+    cells {
+      text: ""
+    }
+  }
+  rows {
+    cells {
+      text: "`` Altadena \'\'"
+    }
+    cells {
+      text: "2017"
+    }
+    cells {
+      text: "Kelela"
+    }
+    cells {
+      text: "Take Me Apart"
+    }
+    cells {
+      text: "Producer"
+    }
+    cells {
+      text: ""
+    }
+    cells {
+      text: "Ariel Rechtshaid , Kwes"
+    }
+  }
+  rows {
+    cells {
+      text: "`` The Good Side \'\'"
+    }
+    cells {
+      text: "2018"
+    }
+    cells {
+      text: "Troye Sivan"
+    }
+    cells {
+      text: "Bloom"
+    }
+    cells {
+      text: "Co-writer / Additional producer"
+    }
+    cells {
+      text: "Troye Sivan , Brett McLaughlin , Bram Inscore , Alexandra Hughes , Ariel Rechtshaid"
+    }
+    cells {
+      text: "Ariel Rechtshaid , Bram Inscore"
+    }
+  }
+  rows {
+    cells {
+      text: "`` Animal \'\'"
+    }
+    cells {
+      text: "2018"
+    }
+    cells {
+      text: "Troye Sivan"
+    }
+    cells {
+      text: "Bloom"
+    }
+    cells {
+      text: "Co-writer / Co-producer"
+    }
+    cells {
+      text: "Troye Sivan , Brett McLaughlin , Bram Inscore , Alexandra Hughes , Ariel Rechtshaid"
+    }
+    cells {
+      text: "Ariel Rechtshaid , Bram Inscore , Buddy Ross , The Haxan Cloak"
+    }
+  }
+  rows {
+    cells {
+      text: "`` No Fun \'\'"
+    }
+    cells {
+      text: "2018"
+    }
+    cells {
+      text: "Joji"
+    }
+    cells {
+      text: "Ballads 1"
+    }
+    cells {
+      text: "Producer"
+    }
+    cells {
+      text: "George Miller"
+    }
+    cells {
+      text: ""
+    }
+  }
+  table_id: "http://en.wikipedia.org/wiki/Jam_City_1"
+}
+questions {
+  id: "0"
+  original_text: "Latham has also written songs and produced for Kelela , producing `` Keep It Cool \'\' and `` Cherry Coffee \'\' on her mixtape Cut 4 Me , and providing a remix of `` Keep It Cool \'\' on the deluxe edition ."
+  answer {
+    answer_coordinates {
+      row_index: 0
+      column_index: 0
+    }
+  }
+  [language.tapas.AnnotatedText.annotated_question_ext] {
+    annotations {
+      begin_byte_index: 66
+      end_byte_index: 84
+      identifier: "cell_text: `` Keep It Cool \'\'"
+    }
+    annotations {
+      begin_byte_index: 160
+      end_byte_index: 178
+      identifier: "cell_text: `` Keep It Cool \'\'"
+    }
+  }
+}

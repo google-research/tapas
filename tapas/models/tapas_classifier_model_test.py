@@ -95,6 +95,8 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
         average_logits_per_cell=params["average_logits_per_cell"],
         select_one_column=params["select_one_column"],
         disable_per_token_loss=params.get("disable_per_token_loss", False),
+        classification_label_weight=params.get("classification_label_weight",
+                                               {}),
     )
     model_fn = tapas_classifier_model.model_fn_builder(tapas_config)
 
@@ -220,6 +222,7 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
         use_tpu=False,
         num_aggregation_labels=4,
         num_classification_labels=6,
+        classification_label_weight={2: 10},
         aggregation_loss_importance=0.8,
         use_answer_as_supervision=use_answer_as_supervision,
         answer_loss_importance=0.001,

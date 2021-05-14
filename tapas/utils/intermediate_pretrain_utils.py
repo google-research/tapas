@@ -58,7 +58,7 @@ def synthesize_fn(
       config, rng, interaction, FlumeCounter(), add_opposite_table):
     if use_fake_table:
       _clear_table(new_interaction)
-    yield new_interaction
+    yield new_interaction.id, new_interaction
 
 
 def shard_interaction_fn(
@@ -108,7 +108,7 @@ def _clear_table(interaction):
 
 
 def _to_contrastive_statements_fn(
-    interaction,
+    key_interaction,
     use_fake_table,
     drop_without_support_rate,
 ):
@@ -116,7 +116,7 @@ def _to_contrastive_statements_fn(
 
   # Make a copy since beam functions should not manipulate inputs.
   new_interaction = interaction_pb2.Interaction()
-  new_interaction.CopyFrom(interaction)
+  new_interaction.CopyFrom(key_interaction[1])
   interaction = new_interaction
 
   iid = interaction.table.table_id
@@ -167,7 +167,7 @@ def _to_contrastive_statements_fn(
     new_question.answer.class_index = 0
 
     beam.metrics.Metrics.counter(_NS, "Pairs emitted").inc()
-    yield new_interaction
+    yield new_interaction.id, new_interaction
 
 
 class ToClassifierTensorflowExample(beam.DoFn):
@@ -185,12 +185,14 @@ class ToClassifierTensorflowExample(beam.DoFn):
 
   def process(
       self,
-      interaction):
-    for index in range(len(interaction.questions)):
+      key_interaction,
+  ):
+    _, interaction = key_interaction
+    for index, question in enumerate(interaction.questions):
       beam.metrics.Metrics.counter(_NS, "Input question").inc()
       try:
         example = self._converter.convert(interaction, index)
-        yield example
+        yield question.id, example
         beam.metrics.Metrics.counter(_NS, "Conversion success").inc()
       except ValueError as e:
         beam.metrics.Metrics.counter(_NS, "Conversion error").inc()
@@ -224,7 +226,6 @@ def build_pipeline(
 
       data.append(
           interactions
-          | "DropKey" >> beam.Map(lambda key_interaction: key_interaction[1])
           | "ToContrastivePairs" >> beam.FlatMap(
               _to_contrastive_statements_fn,
               use_fake_table=use_fake_table,

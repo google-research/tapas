@@ -39,6 +39,8 @@ flags.DEFINE_string("gc_job_name", None, "e.g. myjob")
 flags.DEFINE_string("gc_staging_location", None,
                     "e.g. gs://your-bucket/staging")
 flags.DEFINE_string("gc_temp_location", None, "e.g. gs://your-bucket/temp")
+flags.DEFINE_boolean("save_main_session", False,
+                     "Useful when getting NameErrors from global imports.")
 # Pass Tapas sources to GC.
 # See https://beam.apache.org/documentation/sdks/python-pipeline-dependencies/
 flags.DEFINE_list(
@@ -65,6 +67,7 @@ def run_type(pipeline, runner_type):
     gc_options.temp_location = FLAGS.gc_temp_location
     setup = options.view_as(pipeline_options.SetupOptions)
     setup.extra_packages = FLAGS.extra_packages
+    setup.save_main_session = FLAGS.save_main_session
     return runners.DataflowRunner().run(pipeline, options=options)
   raise ValueError(f"Unsupported runner type: {runner_type}")
 

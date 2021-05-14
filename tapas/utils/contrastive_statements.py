@@ -70,7 +70,7 @@ def _add_identifier(identifier, reference_type, text,
   key = identifier, reference_type
 
   if key not in references:
-    references[key] = Reference(set(), set())
+    references[key] = Reference(set(), set())  # pytype: disable=container-type-mismatch
   references[key].span_texts.add(text)
   references[key].coordinates.add((row_index, column_index))
 

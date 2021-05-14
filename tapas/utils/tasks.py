@@ -25,3 +25,4 @@ class Task(enum.Enum):
   WIKISQL = 2
   WIKISQL_SUPERVISED = 3
   TABFACT = 4
+  NQ_RETRIEVAL = 7

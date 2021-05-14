@@ -1,0 +1,44 @@
+# proto-file: third_party/py/tapas/protos/interaction.proto
+# proto-message: language.tapas.Interaction
+table: {
+  columns: {
+    text: "Title"
+  }
+  columns: {
+    text: "Album"
+  }
+  columns: {
+    text: "Chart"
+  }
+  rows: {
+    cells: {
+      text: "Mercury"
+    }
+    cells: {
+      text: "Released 1983"
+    }
+    cells: {
+      text: "5"
+    }
+  }
+  rows: {
+    cells: {
+      text: "Survival"
+    }
+    cells: {
+      text: "Released 1984"
+    }
+    cells: {
+      text: ""
+    }
+  }
+  table_id: "http://en.wikipedia.org/wiki/!Action_Pact!_1"
+}
+questions: {
+  id: "CAPTION"
+  original_text: "List of albums"
+}
+questions: {
+  id: "TEXT"
+  original_text: "Contains ..."
+}

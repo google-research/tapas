@@ -42,7 +42,7 @@ from absl import app
 from absl import flags
 
 from tapas.utils import beam_runner
-from tapas.utils import pretrain_utils
+from tapas.utils import create_data
 from tapas.utils import tf_example_utils
 
 FLAGS = flags.FLAGS
@@ -96,9 +96,10 @@ def main(argv):
       always_continue_cells=FLAGS.always_continue_cells,
       strip_column_names=False,
   )
-  pipeline = pretrain_utils.build_pretrain_data_pipeline(
+  pipeline = create_data.build_pretraining_pipeline(
       input_file=FLAGS.input_file,
       output_dir=FLAGS.output_dir,
+      output_suffix=".tfrecord",
       config=config,
       dupe_factor=FLAGS.dupe_factor,
       min_num_rows=FLAGS.min_num_rows,

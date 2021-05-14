@@ -168,14 +168,14 @@ def to_numpy_seed(obj):
   return tf_example_utils.fingerprint(repr(obj)) % _MAX_INT
 
 
-def _partition_fn(
+def partition_fn(
     example,
     partition_count,
     num_splits,
 ):
   """Partitions example into train/test based on hash of table id."""
   assert partition_count == 2
-  example_id = _get_table_id(example)
+  example_id = _get_table_id(example[1])
   shard = to_numpy_seed(example_id) % num_splits
   if shard == 0:
     return 1
@@ -187,6 +187,7 @@ def write_proto_outputs(output_file, name, data, proto_message):
   if output_file.endswith((".txtpb.gz", ".txtpb")):
     _ = (
         data
+        | "DropKey_%s" % name >> beam.Values()
         | "ToTextProto" % name >> beam.Map(
             _proto_to_text,
             proto_message=proto_message,
@@ -196,6 +197,7 @@ def write_proto_outputs(output_file, name, data, proto_message):
   elif output_file.endswith(".tfrecord"):
     _ = (
         data
+        | "DropKey_%s" % name >> beam.Values()
         | "WriteTFRecordsExamples_%s" % name >> beam.io.WriteToTFRecord(
             file_path_prefix=output_file,
             shard_name_template="",
@@ -215,7 +217,7 @@ def split_by_table_id_and_write(
   """Split interactions into train and test and write them to disc."""
   train, test = (
       examples
-      | "Partition" >> beam.Partition(_partition_fn, 2, num_splits))
+      | "Partition" >> beam.Partition(partition_fn, 2, num_splits))
 
   for name, suffix, data in zip(
       ["train", "test"],
@@ -230,41 +232,6 @@ def pair_with_none_fn(
     element):
   key, interaction = element
   yield key, (interaction, None)
-
-
-def build_pretrain_data_pipeline(
-    input_file,
-    output_dir,
-    config,
-    dupe_factor,
-    min_num_rows,
-    min_num_columns,
-    num_splits = 100,
-):
-  """Maps pre-training interactions to TF examples."""
-
-  def pipeline(root):
-    interactions = read_interactions(root, input_file, name="input")
-    examples = (
-        interactions
-        | "CheckTableId" >> beam.FlatMap(check_table_id_fn)
-        | "CheckTableSize" >> beam.FlatMap(check_tale_size_fn, min_num_rows,
-                                           min_num_columns)
-        | "AddNumericValues" >> beam.Map(add_numeric_values_fn)
-        | "Duplicate" >> beam.FlatMap(duplicate_fn, dupe_factor)
-        | "PairWithNone" >> beam.FlatMap(pair_with_none_fn)
-        | "ToTensorflowExample" >> beam.ParDo(ToTensorflowExample(config))
-        | "DropKey" >> beam.Map(lambda id_ex: id_ex[1])
-        | "Post-Shuffle" >> beam.transforms.util.Reshuffle())
-
-    split_by_table_id_and_write(
-        examples,
-        output_dir,
-        proto_message=tf.train.Example,
-        num_splits=num_splits,
-    )
-
-  return pipeline
 
 
 def _get_input_id(element):
@@ -296,7 +263,7 @@ def read_inputs(root, input_file, name, proto_message):
             | "Pre-Shuffle" >> beam.transforms.util.Reshuffle()
             | "Parse Text Proto" >> beam.Map(_parse_text_interaction))
   value_coder = beam.coders.ProtoCoder(proto_message)
-  if input_file.endswith(".tfrecord"):
+  if input_file.endswith(".tfrecord") or input_file.endswith(".tfrecords"):
     return (
         root | "Read Inputs %s" % name >> beam.io.ReadFromTFRecord(
             file_pattern=input_file, coder=value_coder, validate=False)

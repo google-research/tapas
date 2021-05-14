@@ -56,6 +56,9 @@ def create_random_example(
     max_num_candidates,
 ):
   """Returns a random table example."""
+  if task_type == table_dataset.TableTask.RETRIEVAL_NEGATIVES:
+    # For this task every table feature encodes 2 tables.
+    max_seq_length = 2 * max_seq_length
   values = dict(
       input_ids=np.random.randint(
           vocab_size, size=[max_seq_length], dtype=np.int32),
@@ -103,6 +106,35 @@ def create_random_example(
           np.random.rand(max_seq_length) < 0.5, np.nan,
           np.random.uniform(-100, 100, size=[max_seq_length]))
       values["numeric_values"] = numeric_values.astype(np.float32)
+  elif task_type in [
+      table_dataset.TableTask.RETRIEVAL,
+      table_dataset.TableTask.RETRIEVAL_NEGATIVES,
+  ]:
+    tables_per_examples = 1
+    if task_type == table_dataset.TableTask.RETRIEVAL_NEGATIVES:
+      tables_per_examples = 2
+    max_seq_length = max_seq_length // tables_per_examples
+    values["question_input_ids"] = np.random.randint(
+        vocab_size, size=[max_seq_length], dtype=np.int32)
+    values["question_input_mask"] = np.random.randint(
+        2, size=[max_seq_length], dtype=np.int32)
+    values["table_id_hash"] = np.random.randint(
+        2,
+        size=[tables_per_examples],
+        dtype=np.int32,
+    )
+    values["question_hash"] = np.random.randint(
+        2,
+        size=[1],
+        dtype=np.int32,
+    )
+    if include_id:
+      table_ids = []
+      for _ in range(tables_per_examples):
+        table_id = "".join(
+            random.choice(string.ascii_lowercase) for i in range(10))
+        table_ids.append(str.encode(table_id))
+      values["table_id"] = np.array(table_ids)
   else:
     raise ValueError(f"Unsupported task type: {task_type}")
 

@@ -1,0 +1,43 @@
+// Copyright 2019 The Google AI Language Team Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+syntax = "proto2";
+
+package language.tapas;
+
+import "tapas/protos/interaction.proto";
+
+message NegativeRetrievalExamples {
+  extend language.tapas.Question {
+    optional NegativeRetrievalExamples negative_retrieval_examples_ext =
+        288888272;
+  }
+  // The examples correspend to the negative tables.
+  repeated NegativeRetrievalExample examples = 1;
+}
+
+message NegativeRetrievalExample {
+  // One negative table
+  optional Table table = 1;
+  enum Type {
+    BASELINE = 1;
+    DOCUMENT = 2;
+    CORRUPTED = 3;
+  }
+  optional Type type = 2;
+  // If table was retrieved from Baseline its rank.
+  optional int32 rank = 3;
+  // The similarity score between the negative table and the question.
+  // A positive score represent a high similarity.
+  optional float score = 4;
+}

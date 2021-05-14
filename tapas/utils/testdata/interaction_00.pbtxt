@@ -1,0 +1,260 @@
+# proto-file: third_party/py/tapas/protos/interaction.proto
+# proto-message: language.tapas.Interaction
+id: "nt-12454-1"
+table: {
+  columns: {
+    text: "Rank"
+  }
+  columns: {
+    text: "City"
+  }
+  columns: {
+    text: "Passengers"
+  }
+  columns: {
+    text: "Ranking"
+  }
+  columns: {
+    text: "Airline"
+  }
+  rows: {
+    cells: {
+      text: "1"
+      numeric_value: {
+        float_value: 1.0
+      }
+    }
+    cells: {
+      text: "United States, Los Angeles"
+    }
+    cells: {
+      text: "14,749"
+      numeric_value: {
+        float_value: 14749.0
+      }
+    }
+    cells: {
+      text: ""
+    }
+    cells: {
+      text: "Alaska Airlines"
+    }
+  }
+  rows: {
+    cells: {
+      text: "2"
+      numeric_value: {
+        float_value: 2.0
+      }
+    }
+    cells: {
+      text: "United States, Houston"
+    }
+    cells: {
+      text: "5,465"
+      numeric_value: {
+        float_value: 5465.0
+      }
+    }
+    cells: {
+      text: ""
+    }
+    cells: {
+      text: "United Express"
+    }
+  }
+  rows: {
+    cells: {
+      text: "3"
+      numeric_value: {
+        float_value: 3.0
+      }
+    }
+    cells: {
+      text: "Canada, Calgary"
+    }
+    cells: {
+      text: "3,761"
+      numeric_value: {
+        float_value: 3761.0
+      }
+    }
+    cells: {
+      text: ""
+    }
+    cells: {
+      text: "Air Transat, WestJet"
+    }
+  }
+  rows: {
+    cells: {
+      text: "4"
+      numeric_value: {
+        float_value: 4.0
+      }
+    }
+    cells: {
+      text: "Canada, Saskatoon"
+    }
+    cells: {
+      text: "2,282"
+      numeric_value: {
+        float_value: 2282.0
+      }
+    }
+    cells: {
+      text: "4"
+    }
+    cells: {
+      text: ""
+    }
+  }
+  rows: {
+    cells: {
+      text: "5"
+      numeric_value: {
+        float_value: 5.0
+      }
+    }
+    cells: {
+      text: "Canada, Vancouver"
+    }
+    cells: {
+      text: "2,103"
+      numeric_value: {
+        float_value: 2103.0
+      }
+    }
+    cells: {
+      text: ""
+    }
+    cells: {
+      text: "Air Transat"
+    }
+  }
+  rows: {
+    cells: {
+      text: "6"
+      numeric_value: {
+        float_value: 6.0
+      }
+    }
+    cells: {
+      text: "United States, Phoenix"
+    }
+    cells: {
+      text: "1,829"
+      numeric_value: {
+        float_value: 1829.0
+      }
+    }
+    cells: {
+      text: "1"
+    }
+    cells: {
+      text: "US Airways"
+    }
+  }
+  rows: {
+    cells: {
+      text: "7"
+      numeric_value: {
+        float_value: 7.0
+      }
+    }
+    cells: {
+      text: "Canada, Toronto"
+    }
+    cells: {
+      text: "1,202"
+      numeric_value: {
+        float_value: 1202.0
+      }
+    }
+    cells: {
+      text: "1"
+    }
+    cells: {
+      text: "Air Transat, CanJet"
+    }
+  }
+  rows: {
+    cells: {
+      text: "8"
+      numeric_value: {
+        float_value: 8.0
+      }
+    }
+    cells: {
+      text: "Canada, Edmonton"
+    }
+    cells: {
+      text: "110"
+      numeric_value: {
+        float_value: 110.0
+      }
+    }
+    cells: {
+      text: ""
+    }
+    cells: {
+      text: ""
+    }
+  }
+  rows: {
+    cells: {
+      text: "9"
+      numeric_value: {
+        float_value: 9.0
+      }
+    }
+    cells: {
+      text: "United States, Oakland"
+    }
+    cells: {
+      text: "107"
+      numeric_value: {
+        float_value: 107.0
+      }
+    }
+    cells: {
+      text: ""
+    }
+    cells: {
+      text: ""
+    }
+  }
+  table_id: "table_csv/203_515.csv"
+}
+questions: {
+  id: "nt-12454-1_0"
+  text: "which cities had less than 2,000 passengers?"
+  original_text: "which cities had less than 2,000 passengers?"
+  annotations: {
+    spans: {
+      begin_index: 27
+      end_index: 32
+      values: {
+        float_value: 2000.0
+      }
+    }
+  }
+  answer: {
+    answer_coordinates: {
+      row_index: 5
+      column_index: 1
+    }
+    answer_coordinates: {
+      row_index: 6
+      column_index: 1
+    }
+    answer_coordinates: {
+      row_index: 7
+      column_index: 1
+    }
+    answer_coordinates: {
+      row_index: 8
+      column_index: 1
+    }
+  }
+}

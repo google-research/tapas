@@ -1,0 +1,420 @@
+features {
+  feature {
+    key: "aggregation_function_id"
+    value {
+      int64_list {
+        value: 0
+      }
+    }
+  }
+  feature {
+    key: "answer"
+    value {
+      float_list {
+        value: 2.0
+      }
+    }
+  }
+  feature {
+    key: "can_aggregation_function_ids"
+    value {
+      int64_list {
+        value: 3
+        value: 3
+        value: 1
+        value: 1
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+      }
+    }
+  }
+  feature {
+    key: "can_indexes"
+    value {
+      int64_list {
+        value: 8
+        value: 10
+        value: 9
+        value: 11
+        value: 8
+        value: 10
+        value: 9
+        value: 11
+      }
+    }
+  }
+  feature {
+    key: "can_sizes"
+    value {
+      int64_list {
+        value: 2
+        value: 2
+        value: 2
+        value: 2
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+      }
+    }
+  }
+  feature {
+    key: "cand_num"
+    value {
+      int64_list {
+        value: 4
+      }
+    }
+  }
+  feature {
+    key: "classification_class_index"
+    value {
+      int64_list {
+        value: 0
+      }
+    }
+  }
+  feature {
+    key: "column_ids"
+    value {
+      int64_list {
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 1
+        value: 2
+        value: 1
+        value: 2
+        value: 1
+        value: 2
+        value: 0
+        value: 0
+        value: 0
+      }
+    }
+  }
+  feature {
+    key: "column_ranks"
+    value {
+      int64_list {
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 1
+        value: 1
+        value: 1
+        value: 1
+        value: 0
+        value: 0
+        value: 0
+      }
+    }
+  }
+  feature {
+    key: "input_ids"
+    value {
+      int64_list {
+        value: 101
+        value: 1053
+        value: 2226
+        value: 2121
+        value: 2100
+        value: 102
+        value: 1037
+        value: 1038
+        value: 1015
+        value: 1015
+        value: 1015
+        value: 1015
+        value: 0
+        value: 0
+        value: 0
+      }
+    }
+  }
+  feature {
+    key: "input_mask"
+    value {
+      int64_list {
+        value: 1
+        value: 1
+        value: 1
+        value: 1
+        value: 1
+        value: 1
+        value: 1
+        value: 1
+        value: 1
+        value: 1
+        value: 1
+        value: 1
+        value: 0
+        value: 0
+        value: 0
+      }
+    }
+  }
+  feature {
+    key: "inv_column_ranks"
+    value {
+      int64_list {
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 1
+        value: 1
+        value: 1
+        value: 1
+        value: 0
+        value: 0
+        value: 0
+      }
+    }
+  }
+  feature {
+    key: "label_ids"
+    value {
+      int64_list {
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+      }
+    }
+  }
+  feature {
+    key: "numeric_relations"
+    value {
+      int64_list {
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+      }
+    }
+  }
+  feature {
+    key: "numeric_values_scale"
+    value {
+      float_list {
+        value: 1.0
+        value: 1.0
+        value: 1.0
+        value: 1.0
+        value: 1.0
+        value: 1.0
+        value: 1.0
+        value: 1.0
+        value: 1.0
+        value: 1.0
+        value: 1.0
+        value: 1.0
+        value: 1.0
+        value: 1.0
+        value: 1.0
+      }
+    }
+  }
+  feature {
+    key: "prev_label_ids"
+    value {
+      int64_list {
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+      }
+    }
+  }
+  feature {
+    key: "question_id"
+    value {
+      bytes_list {
+        value: "key"
+      }
+    }
+  }
+  feature {
+    key: "question_id_ints"
+    value {
+      int64_list {
+        value: 108
+        value: 102
+        value: 122
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+      }
+    }
+  }
+  feature {
+    key: "row_ids"
+    value {
+      int64_list {
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 1
+        value: 1
+        value: 2
+        value: 2
+        value: 0
+        value: 0
+        value: 0
+      }
+    }
+  }
+  feature {
+    key: "segment_ids"
+    value {
+      int64_list {
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 0
+        value: 1
+        value: 1
+        value: 1
+        value: 1
+        value: 1
+        value: 1
+        value: 0
+        value: 0
+        value: 0
+      }
+    }
+  }
+  feature {
+    key: "table_id"
+    value {
+      bytes_list {
+        value: "key"
+      }
+    }
+  }
+  feature {
+    key: "table_id_hash"
+    value {
+      int64_list {
+        value: 2019978089
+      }
+    }
+  }
+}

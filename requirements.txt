@@ -10,3 +10,6 @@ kaggle<1.5.8
 tensorflow-probability==0.10.1
 tf_slim~=1.1.0
 nltk~=3.5
+beautifulsoup4==4.9.3
+html5lib==1.1
+gensim~=3.8.3

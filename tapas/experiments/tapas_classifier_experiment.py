@@ -16,9 +16,10 @@
 """TAPAS classifier experiment."""
 
 import functools
+import json
 import os
 import traceback
-from typing import Text, Optional, Mapping
+from typing import Mapping, Optional, Text
 
 from absl import app
 from absl import flags
@@ -207,6 +208,10 @@ flags.DEFINE_bool(
     "Whether the model should be forced to select cells from only one column.")
 
 
+flags.DEFINE_list(
+    "classification_label_weight", [],
+    "List of label:weight to multiply the loss term for each example.")
+
 flags.DEFINE_bool(
     "reset_output_cls",
     False,
@@ -356,11 +361,17 @@ def main(_):
       agg_temperature=FLAGS.agg_temperature,
       use_gumbel_for_cells=FLAGS.use_gumbel_for_cells,
       use_gumbel_for_agg=FLAGS.use_gumbel_for_agg,
-      average_approximation_function=tapas_classifier_model.\
-        AverageApproximationFunction(FLAGS.average_approximation_function),
+      average_approximation_function=(
+          tapas_classifier_model.AverageApproximationFunction(
+              FLAGS.average_approximation_function)),
       cell_select_pref=FLAGS.cell_select_pref,
       answer_loss_cutoff=FLAGS.answer_loss_cutoff,
       grad_clipping=FLAGS.grad_clipping,
+      classification_label_weight={
+          int(pair.split(":")[0]): float(pair.split(":")[1])
+          for pair in FLAGS.classification_label_weight
+          if pair
+      },
       reset_output_cls=FLAGS.reset_output_cls,
       disabled_features=FLAGS.disabled_features,
       max_num_rows=FLAGS.max_num_rows,
@@ -375,10 +386,20 @@ def main(_):
       reset_position_index_per_cell=FLAGS.reset_position_index_per_cell,
       span_prediction=tapas_classifier_model.SpanPredictionMode(
           FLAGS.span_prediction),
-      proj_value_length=FLAGS.proj_value_length if FLAGS.proj_value_length > 0 else None,)
+      proj_value_length=_get_projection_length(FLAGS.proj_value_length),
+  )
 
   model_fn = tapas_classifier_model.model_fn_builder(tapas_config)
   estimator = experiment_utils.build_estimator(model_fn)
+
+  if tapas_config.classification_label_weight:
+    if any(x < 0 for x in tapas_config.classification_label_weight.values()):
+      raise ValueError("Label weights cannot be negative in input: "
+                       f"{tapas_config.classification_label_weight}.")
+    if any(x < 0 or x >= tapas_config.num_classification_labels
+           for x in tapas_config.classification_label_weight.keys()):
+      raise ValueError("Invalid label in label weights for input: "
+                       f"{tapas_config.classification_label_weight}.")
 
   if FLAGS.do_train:
     tf.io.gfile.makedirs(FLAGS.model_dir)

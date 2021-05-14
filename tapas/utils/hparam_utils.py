@@ -39,6 +39,10 @@ def get_tabfact_hparams():
   return get_hparams(tasks.Task.TABFACT)
 
 
+def get_nq_e2e_hparams():
+  return get_hparams(tasks.Task.NQ_RETRIEVAL)
+
+
 def get_hparams(task):
   """Gets hpraram dictionary for a given tasks."""
   if task == tasks.Task.SQA:
@@ -106,6 +110,26 @@ def get_hparams(task):
         'init_cell_selection_weights_to_zero': False,
         'select_one_column': False,
         'allow_empty_column_selection': False,
+    })
+  elif task == tasks.Task.NQ_RETRIEVAL:
+    params.update({
+        'disable_per_token_loss': False,
+        'grad_clipping': 10.0,
+        'num_classification_labels': 2,
+        'num_aggregation_labels': 0,
+        'init_cell_selection_weights_to_zero': False,
+        'num_train_examples': 50000 * 512,
+        'select_one_column': False,
+        'allow_empty_column_selection': True,
+        'train_batch_size': 512,
+        'compute_e2e_retrieval_metrics': True,
+        'compute_denotation_accuracy': False,
+        'mask_examples_without_labels': True,
+        'bert_config_attention_probs_dropout_prob': 0.034,
+        'bert_config_hidden_dropout_prob': 0.2,
+        'learning_rate': 1e-06,
+        'warmup_ratio': 0.0,
+        'span_prediction': 'span',
     })
   else:
     raise ValueError(f'Unknown task: {task.name}')

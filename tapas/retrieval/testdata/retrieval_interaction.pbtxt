@@ -1,0 +1,32 @@
+id: "int_id"
+table: {
+  columns: {
+    text: "Created by"
+  }
+  columns: {
+    text: "Original work"
+  }
+  columns: {
+    text: "Novels"
+  }
+  rows: {
+    cells: {
+      text: "Thomas Harris"
+    }
+    cells: {
+      text: "Red Dragon"
+    }
+    cells: {
+      text: "Red Dragon"
+    }
+  }
+  table_id: "tab_id_0"
+  document_title: "Hannibal Lecter"
+}
+questions: {
+  id: "q_id_0"
+  original_text: "what order do the hannibal lecter movies go in"
+  answer: {
+    answer_texts: "Hannibal"
+  }
+}

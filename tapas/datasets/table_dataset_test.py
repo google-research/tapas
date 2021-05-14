@@ -49,6 +49,10 @@ class TableDatasetTest(parameterized.TestCase, tf.test.TestCase):
        table_dataset.TableTask.CLASSIFICATION, True, False, False, False, True),
       ("predict_with_classification", 10, 10,
        table_dataset.TableTask.CLASSIFICATION, True, False, True, False, True),
+      ("train_with_dual_encoder", 10, 10, table_dataset.TableTask.RETRIEVAL,
+       False, False, False, False, False),
+      ("predict_with_dual_encoder", 10, 10, table_dataset.TableTask.RETRIEVAL,
+       False, False, True, False, False),
   )
   def test_parse_table_examples(self, max_seq_length, max_predictions_per_seq,
                                 task_type, add_aggregation_function_id,

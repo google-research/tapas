@@ -1,0 +1,2 @@
+{"query_id": "q_1_0", "table_scores": [{"table_id": "table_1", "score": -10.0}, {"table_id": "table_3", "score":-8.0}, {"table_id":"table_2", "score": -6.0}]}
+{"query_id": "q_2_0", "table_scores": [{"table_id": "table_2", "score": -100.0}, {"table_id": "table_1", "score":-14.0}, {"table_id": "table_3", "score": -1.0}]}

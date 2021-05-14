@@ -21,6 +21,7 @@ import random
 from typing import Iterable, List, Mapping, Optional, Text, Tuple
 
 from absl import logging
+from apache_beam import metrics as beam_metrics
 import dataclasses
 from tapas.protos import interaction_pb2
 from tapas.protos import table_selection_pb2
@@ -143,8 +144,16 @@ class ClassifierConversionConfig(TrimmedConversionConfig):
   drop_rows_to_fit: bool = False
   # If true adds the context heading of the table to the question.
   use_context_title: bool = False
+  # For TPU prediction we serialize strings into a fix length.
+  trim_question_ids: bool = False
+  # For each data split how to up/down sample the dataset
+  label_sampling_rate: Mapping[Tuple[Text, int],
+                               float] = dataclasses.field(default_factory=dict)
 
 
+@dataclasses.dataclass(frozen=True)
+class RetrievalConversionConfig(TrimmedConversionConfig):
+  use_document_title: bool = True
 
 
 @dataclasses.dataclass(frozen=True)
@@ -211,6 +220,13 @@ def _get_all_answer_ids_from_coordinates(
         answer_ids[index] = 1
 
   missing_count = len(all_answers) - len(found_answers)
+  buckets = [1, 2, 3, 4, 5, 10, 25, 50, 100]
+  if missing_count:
+    beam_metrics.Metrics.counter(
+        _NS, _get_buckets(missing_count, buckets, 'Missing answers')).inc()
+  if found_answers:
+    beam_metrics.Metrics.counter(
+        _NS, _get_buckets(len(found_answers), buckets, 'Found answers')).inc()
   return answer_ids, missing_count
 
 
@@ -274,10 +290,13 @@ def _find_answer_ids_from_answer_texts(
   """Maps question with answer texts to the first matching token indexes."""
   answer_ids = [0] * len(column_ids)
   for answer_text in answer_texts:
+    found_answer_text = False
+    found_answer_text_ids = False
     for coordinates in _find_answer_coordinates_from_answer_text(
         tokenized_table,
         answer_text,
     ):
+      found_answer_text = True
       # Maps answer coordinates to indexes this can fail if tokens / rows have
       # been pruned.
       indexes = list(
@@ -296,9 +315,16 @@ def _find_answer_ids_from_answer_texts(
           if index >= begin_index and index < end_index:
             coordinate_answer_ids.append(index)
       if len(coordinate_answer_ids) == len(answer_text):
+        found_answer_text_ids = True
         for index in coordinate_answer_ids:
           answer_ids[index] = 1
         break
+    beam_metrics.Metrics.counter(_NS, 'Answer texts: total').inc()
+    if found_answer_text:
+      beam_metrics.Metrics.counter(_NS, 'Answer texts: found').inc()
+    if found_answer_text_ids:
+      beam_metrics.Metrics.counter(_NS, 'Answer texts: found ids').inc()
+
   return answer_ids
 
 
@@ -404,8 +430,8 @@ class ToTensorflowExampleBase:
       word_begin_index = tc.token_index
       # Don't add partial words. Find the starting word piece and check if it
       # fits in the token budget.
-      while word_begin_index >= 0 \
-          and _is_inner_wordpiece(cell[word_begin_index]):
+      while (word_begin_index >= 0 and
+             _is_inner_wordpiece(cell[word_begin_index])):
         word_begin_index -= 1
       if word_begin_index >= num_tokens:
         continue
@@ -605,6 +631,8 @@ class ToTensorflowExampleBase:
       for relation in relations:
         assert relation.value >= constants.Relation.EQ.value
         relation_set_index += 2**(relation.value - constants.Relation.EQ.value)
+      beam_metrics.Metrics.counter(
+          _NS, 'Relation Set Index: %d' % relation_set_index).inc()
       for cell_token_index in _get_cell_token_indexes(column_ids, row_ids,
                                                       column_index, row_index):
         numeric_relations[cell_token_index] = relation_set_index
@@ -626,6 +654,8 @@ class ToTensorflowExampleBase:
 
           float_value = numeric_value.float_value
           if float_value == float('inf'):
+            beam_metrics.Metrics.counter(
+                _NS, 'cell with numeric value of infinite').inc()
             continue
 
           for index in _get_cell_token_indexes(token_ids_dict['column_ids'],
@@ -786,6 +816,7 @@ class ToPretrainingTensorflowExample(ToTensorflowExampleBase):
         table = None
 
     if table is None:
+      beam_metrics.Metrics.counter(_NS, 'Examples without tables').inc()
       question_tokens = self._tokenizer.tokenize(
           interaction.questions[0].original_text)
       question_tokens = question_tokens[:self._max_seq_length - 1]
@@ -799,6 +830,12 @@ class ToPretrainingTensorflowExample(ToTensorflowExampleBase):
             f'Remove question below the min length {self._min_question_length}'
         ).inc()
         return None
+      beam_metrics.Metrics.counter(_NS, 'Examples with tables').inc()
+      beam_metrics.Metrics.counter(
+          _NS,
+          _get_buckets(
+              len(question_tokens), self._question_buckets,
+              'Question Length')).inc()
       if random_table is not None:
         logging.log_every_n(logging.INFO,
                             'Table: %s Random Table: %s is_random_table: %s',
@@ -973,6 +1010,27 @@ class ToPretrainingTensorflowExample(ToTensorflowExampleBase):
           break
         num_tokens += 1
 
+    buckets = [8, 16, 32, 64, 128, 256]
+    beam_metrics.Metrics.counter(
+        _NS, _get_buckets(num_columns * num_rows, buckets,
+                          'Trimmed Table Size')).inc()
+
+    # First row is the header.
+    real_num_columns = len(table.rows[0]) if table.rows else 0
+    # We don't count the header row.
+    real_num_rows = len(table.rows) - 1
+
+    beam_metrics.Metrics.counter(
+        _NS,
+        _get_buckets(real_num_columns * real_num_rows, buckets,
+                     'Real Table Size')).inc()
+    beam_metrics.Metrics.counter(
+        _NS, _get_buckets(num_columns, buckets, 'Column Sizes')).inc()
+    beam_metrics.Metrics.counter(_NS,
+                                 _get_buckets(num_rows, buckets,
+                                              'Row Sizes')).inc()
+    beam_metrics.Metrics.counter(
+        _NS, _get_buckets(num_tokens, buckets, 'Table Token Sizes')).inc()
 
     return num_columns, num_rows, num_tokens
 
@@ -1026,6 +1084,8 @@ class ToTrimmedTensorflowExample(ToTensorflowExampleBase):
         raise ValueError('Sequence too long')
       # Try to drop a row to fit the table.
       num_rows -= 1
+    if init_num_rows != num_rows:
+      beam_metrics.Metrics.counter(_NS, 'Tables with trimmed rows').inc()
     serialized_example = self._serialize(question_tokens, tokenized_table,
                                          num_columns, num_rows, num_tokens)
 
@@ -1064,6 +1124,7 @@ class ToTrimmedTensorflowExample(ToTensorflowExampleBase):
         return None
       if num_tokens == 0:
         return None
+      beam_metrics.Metrics.counter(_NS, 'Tables with trimmed cells').inc()
     return num_tokens
 
 
@@ -1077,6 +1138,7 @@ class ToClassifierTensorflowExample(ToTrimmedTensorflowExample):
     self._use_context_title = config.use_context_title
     self._update_answer_coordinates = config.update_answer_coordinates
     self._drop_rows_to_fit = config.drop_rows_to_fit
+    self._trim_question_ids = config.trim_question_ids
 
   def _tokenize_extended_question(
       self,
@@ -1108,6 +1170,8 @@ class ToClassifierTensorflowExample(ToTrimmedTensorflowExample):
 
     question = interaction.questions[index]
     if not interaction.questions[index].answer.is_valid:
+      beam_metrics.Metrics.counter(
+          _NS, 'Conversion skipped (answer not valid)').inc()
       raise ValueError('Invalid answer')
 
 
@@ -1163,9 +1227,13 @@ class ToClassifierTensorflowExample(ToTrimmedTensorflowExample):
     features['prev_label_ids'] = create_int_feature(prev_answer_ids)
     features['question_id'] = create_string_feature(
         [question.id.encode('utf8')])
+    if self._trim_question_ids:
+      question_id = question.id[-text_utils.DEFAULT_INTS_LENGTH:]
+    else:
+      question_id = question.id
     features['question_id_ints'] = create_int_feature(
         text_utils.str_to_ints(
-            question.id, length=text_utils.DEFAULT_INTS_LENGTH))
+            question_id, length=text_utils.DEFAULT_INTS_LENGTH))
     features['aggregation_function_id'] = create_int_feature(
         [question.answer.aggregation_function])
     features['classification_class_index'] = create_int_feature(
@@ -1211,6 +1279,17 @@ class ToClassifierTensorflowExample(ToTrimmedTensorflowExample):
       # Actual length is sum(sizes).
       features['can_indexes'] = create_int_feature(indexes)
 
+      if num_initial_candidates > 0:
+        beam_metrics.Metrics.counter(
+            _NS,
+            _get_buckets(num_initial_candidates,
+                         [10, 20, 50, 100, 200, 500, 1000, 1200, 1500],
+                         'Candidates Size:')).inc()
+
+        beam_metrics.Metrics.counter(_NS, 'Candidates: Input').inc()
+        if num_final_candidates != num_initial_candidates:
+          beam_metrics.Metrics.counter(_NS,
+                                       'Candidates: Dropped candidates').inc()
 
     return tf.train.Example(features=tf.train.Features(feature=features))
 

@@ -17,7 +17,7 @@
 
 import enum
 import json
-from typing import Iterable, Text, Optional, List, Set
+from typing import Iterable, Text, Optional, List, Set, Mapping
 
 import dataclasses
 
@@ -93,6 +93,10 @@ class TapasClassifierConfig:
   proj_value_length: Optional. down-project keys and values when computing
     self-attention. Following https://arxiv.org/pdf/2006.04768.pdf.
   reset_output_cls: If true, reset classification output layer on init from cp.
+  classification_label_weight: Per label loss multiplier for classification.
+  mask_examples_without_labels: This is useful for e2e retrieval where we do
+  want to train on negative tables but we don't want the model to learn to
+  predict no answer for them.
   """
 
   bert_config: modeling.BertConfig
@@ -130,6 +134,8 @@ class TapasClassifierConfig:
   span_prediction: SpanPredictionMode = SpanPredictionMode.NONE
   proj_value_length: Optional[int] = None
   reset_output_cls: bool = False
+  classification_label_weight: Optional[Mapping[int, float]] = None
+  mask_examples_without_labels: bool = False
 
   def to_json_string(self):
     """Serializes this instance to a JSON string."""
@@ -299,16 +305,18 @@ def _calculate_expected_result(dist_per_cell, numeric_values,
     average_result = sum_result / (count_result + _EPSILON_ZERO_DIVISION)
   elif avg_approximation == AverageApproximationFunction.FIRST_ORDER:
     # The sum of all probabilities exept that correspond to other cells
-    ex = tf.reduce_sum(scaled_probability_per_cell, axis=1, keepdims=True) \
-        - scaled_probability_per_cell + 1
+    ex = (
+        tf.reduce_sum(scaled_probability_per_cell, axis=1, keepdims=True) -
+        scaled_probability_per_cell + 1)
     average_result = tf.reduce_sum(
         numeric_values_masked * scaled_probability_per_cell / ex, axis=1)
   elif avg_approximation == AverageApproximationFunction.SECOND_ORDER:
     # The sum of all probabilities exept that correspond to other cells
-    ex = tf.reduce_sum(scaled_probability_per_cell, axis=1, keepdims=True) \
-        - scaled_probability_per_cell + 1
-    pointwise_var = scaled_probability_per_cell * \
-        (1 - scaled_probability_per_cell)
+    ex = (
+        tf.reduce_sum(scaled_probability_per_cell, axis=1, keepdims=True) -
+        scaled_probability_per_cell + 1)
+    pointwise_var = (
+        scaled_probability_per_cell * (1 - scaled_probability_per_cell))
     var = tf.reduce_sum(pointwise_var, axis=1, keepdims=True) - pointwise_var
     multiplier = (var / tf.math.square(ex) + 1) / ex
     average_result = tf.reduce_sum(
@@ -636,8 +644,8 @@ def _get_classification_outputs(
   logits = utils.compute_token_logits(
       output_layer=output_layer,
       temperature=config.temperature,
-      init_cell_selection_weights_to_zero=\
-        config.init_cell_selection_weights_to_zero)
+      init_cell_selection_weights_to_zero=(
+          config.init_cell_selection_weights_to_zero))
 
   # Compute logits per column. These are used to select a column.
   if config.select_one_column:
@@ -645,8 +653,8 @@ def _get_classification_outputs(
         output_layer=output_layer,
         cell_index=cell_index,
         cell_mask=cell_mask,
-        init_cell_selection_weights_to_zero=\
-          config.init_cell_selection_weights_to_zero,
+        init_cell_selection_weights_to_zero=(
+            config.init_cell_selection_weights_to_zero),
         allow_empty_column_selection=config.allow_empty_column_selection)
 
   # TODO(pawelnow): Extract this into a function.
@@ -671,8 +679,8 @@ def _get_classification_outputs(
 
   with tf.variable_scope("loss"):
     total_loss = 0.0
-    is_supervised = not do_model_aggregation or \
-        not config.use_answer_as_supervision
+    is_supervised = (not do_model_aggregation or
+                     not config.use_answer_as_supervision)
 
     ### Semi-supervised cell selection in case of no aggregation
     #############################################################
@@ -716,8 +724,7 @@ def _get_classification_outputs(
     else:
       weight = tf.where(
           label_ids == 0, tf.ones_like(label_ids, dtype=tf.float32),
-          config.positive_weight *\
-          tf.ones_like(label_ids, dtype=tf.float32))
+          config.positive_weight * tf.ones_like(label_ids, dtype=tf.float32))
       selection_loss_per_token = -dist_per_token.log_prob(label_ids) * weight
       selection_loss_per_example = (
           tf.reduce_sum(selection_loss_per_token * input_mask_float, axis=1) /
@@ -738,6 +745,12 @@ def _get_classification_outputs(
           classification_class_index,
           depth=config.num_classification_labels,
           dtype=tf.float32)
+      if config.classification_label_weight:
+        label_weights = [
+            config.classification_label_weight.get(i, 1.0)
+            for i in range(config.num_classification_labels)
+        ]
+        one_hot_labels *= tf.constant(label_weights, dtype=tf.float32)
       log_probs = tf.nn.log_softmax(logits_cls, axis=-1)
       # <float32>[batch_size]
       per_example_classification_intermediate = -tf.reduce_sum(
@@ -767,6 +780,12 @@ def _get_classification_outputs(
       total_loss += span_loss
     elif config.disable_per_token_loss:
       pass
+    elif config.mask_examples_without_labels:
+      total_loss += tf.reduce_mean(
+          span_prediction_utils.compute_masked_example_loss(
+              label_ids,
+              selection_loss_per_example,
+          ))
     elif is_supervised:
       total_loss += tf.reduce_mean(selection_loss_per_example)
     else:
@@ -897,6 +916,7 @@ def model_fn_builder(
 
     del labels  # Unused.
 
+
     tf.logging.info("*** Features ***")
     for name in sorted(features):
       tf.logging.info("  name = %s, shape = %s", name, features[name].shape)
@@ -918,7 +938,6 @@ def model_fn_builder(
         tf.squeeze(features["classification_class_index"], axis=[1])
         if do_model_classification else None)
 
-
     is_training = (mode == tf.estimator.ModeKeys.TRAIN)
     model = table_bert.create_model(
         features=features,
@@ -927,17 +946,13 @@ def model_fn_builder(
         disabled_features=config.disabled_features,
         disable_position_embeddings=config.disable_position_embeddings,
         reset_position_index_per_cell=config.reset_position_index_per_cell,
-        proj_value_length=config.proj_value_length,)
+        proj_value_length=config.proj_value_length,
+    )
 
-    if config.use_answer_as_supervision:
-      answer = tf.squeeze(features["answer"], axis=[1])
-      numeric_values = features["numeric_values"]
-      numeric_values_scale = features["numeric_values_scale"]
-    else:
-      answer = None
-      numeric_values = None
-      numeric_values_scale = None
-
+    answer, numeric_values, numeric_values_scale = (
+        utils.extract_answer_from_features(
+            features=features,
+            use_answer_as_supervision=config.use_answer_as_supervision))
     outputs = _get_classification_outputs(
         config=config,
         output_layer=model.get_sequence_output(),
@@ -980,6 +995,7 @@ def model_fn_builder(
 
     if init_from_checkpoints:
       if config.use_tpu:
+
         def tpu_scaffold():
           for init_checkpoint, assignment_map in init_from_checkpoints:
             tf.train.init_from_checkpoint(init_checkpoint, assignment_map)
@@ -1047,10 +1063,10 @@ def model_fn_builder(
           "segment_ids": features["segment_ids"],
           "question_id_ints": features["question_id_ints"],
       }
-      # TODO Remove once the data has been updated.
       if "question_id" in features:
         # Only available when predicting on GPU.
         predictions["question_id"] = features["question_id"]
+        del predictions["question_id_ints"]
       if do_model_aggregation:
         predictions.update({
             "gold_aggr":

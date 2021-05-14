@@ -25,6 +25,8 @@ import tensorflow.compat.v1 as tf
 class TableTask(enum.Enum):
   CLASSIFICATION = 0
   PRETRAINING = 1
+  RETRIEVAL = 2
+  RETRIEVAL_NEGATIVES = 3
 
 
 def parse_table_examples(
@@ -41,6 +43,9 @@ def parse_table_examples(
 ):
   """Returns a parse_fn that parses tf.Example in table format."""
 
+  if task_type == TableTask.RETRIEVAL_NEGATIVES:
+    # For this task every table feature encodes 2 tables.
+    max_seq_length = 2 * max_seq_length
 
   feature_types = {
       "input_ids":
@@ -133,6 +138,34 @@ def parse_table_examples(
                   tf.float32,
                   default_value=[0],
               ),
+      })
+  elif task_type in [TableTask.RETRIEVAL, TableTask.RETRIEVAL_NEGATIVES]:
+    tables_per_examples = 1
+    if task_type == TableTask.RETRIEVAL_NEGATIVES:
+      tables_per_examples = 2
+    max_seq_length = max_seq_length // tables_per_examples
+    feature_types.update({
+        "question_input_ids":
+            tf.FixedLenFeature([max_seq_length], tf.int64),
+        "question_input_mask":
+            tf.FixedLenFeature([max_seq_length], tf.int64),
+        "table_id_hash":
+            tf.FixedLenFeature(
+                [tables_per_examples],
+                tf.int64,
+                default_value=[0] * tables_per_examples,
+            ),
+        "question_hash":
+            tf.FixedLenFeature(
+                [1],
+                tf.int64,
+                default_value=[0],
+            ),
+    })
+    if include_id:
+      feature_types.update({
+          "table_id": tf.FixedLenFeature([tables_per_examples], tf.string),
+          "question_id": tf.FixedLenFeature([1], tf.string),
       })
   else:
     raise ValueError(f"Unsupported task type: {task_type}")
