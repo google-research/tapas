@@ -6,8 +6,8 @@ in the paper [TAPAS: Weakly Supervised Table Parsing via Pre-training](#how-to-c
 ## News
 
 #### 2021/05/13
-New models and code for [Open Domain Question Answering over Tables via Dense Retrieval](https://arxiv.org/abs/2103.12011) released
-[here](https://github.com/google-research/tapas/blob/master/DEEP_TABLE_RETRIEVER.md).
+ * New models and code for [Open Domain Question Answering over Tables via Dense Retrieval](https://arxiv.org/abs/2103.12011) released
+[here](https://github.com/google-research/tapas/blob/master/DENSE_TABLE_RETRIEVER.md).
 
 #### 2021/03/23
 
