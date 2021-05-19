@@ -35,6 +35,7 @@ python3 tapas/scripts/preprocess_nq.py \
   --input_path="gs://natural_questions/v1.0" \
   --output_path="gs://${GCP_BUCKET}/nq_tables" \
   --runner_type="DATAFLOW" \
+  --save_main_session \
   --gc_project="${GCP_PROJECT}" \
   --gc_region="us-west1" \
   --gc_job_name="create-intermediate" \
