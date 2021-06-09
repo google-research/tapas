@@ -58,7 +58,7 @@ gsutil -m cp -R "gs://${GCP_BUCKET}/nq_tables/*" "${nq_data_dir}"
 Or you can also run the pipeline locally but that will take a long time and memory:
 
 ```bash
-mdkir -p "${nq_data_dir}/raw"
+mkdir -p "${nq_data_dir}/raw"
 gsutil -m cp -R gs://natural_questions/v1.0/* "${nq_data_dir}/raw"
 python3 tapas/scripts/preprocess_nq.py \
   --input_path="gs://natural_questions/v1.0" \
