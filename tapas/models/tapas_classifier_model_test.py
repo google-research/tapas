@@ -17,15 +17,26 @@
 import os
 import tempfile
 from typing import Iterator, Tuple
-from absl.testing import parameterized
 
+from absl.testing import parameterized
 import numpy as np
 from tapas.datasets import table_dataset
 from tapas.datasets import table_dataset_test_utils
 from tapas.models import tapas_classifier_model
 from tapas.models.bert import modeling
+from tapas.protos import table_pruning_pb2
 import tensorflow.compat.v1 as tf
+from google.protobuf import text_format
 
+
+_Loss = table_pruning_pb2.Loss
+_TablePruningModel = table_pruning_pb2.TablePruningModel
+_Tapas = table_pruning_pb2.TAPAS
+_HardSelection = _Loss.HardSelection
+_TOP_K = _HardSelection.SelectionFn.TOP_K
+_MASK_TOP_K = _HardSelection.SelectionFn.MASK_TOP_K
+_Unsupervised = _Loss.Unsupervised
+_Regularization = _Unsupervised.Regularization
 
 
 def bool_tuple(length, true_indexes):
@@ -97,6 +108,7 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
         disable_per_token_loss=params.get("disable_per_token_loss", False),
         classification_label_weight=params.get("classification_label_weight",
                                                {}),
+        table_pruning_config_file=params.get("table_pruning_config_file", None),
     )
     model_fn = tapas_classifier_model.model_fn_builder(tapas_config)
 
@@ -165,8 +177,8 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
         agg_temperature=1.0,
         use_gumbel_for_cells=False,
         use_gumbel_for_agg=False,
-        average_approximation_function=\
-          tapas_classifier_model.AverageApproximationFunction.RATIO,
+        average_approximation_function=tapas_classifier_model
+        .AverageApproximationFunction.RATIO,
         cell_select_pref=0.5,
         answer_loss_cutoff=100,
         grad_clipping=4.0,
@@ -232,8 +244,8 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
         agg_temperature=1.0,
         use_gumbel_for_cells=False,
         use_gumbel_for_agg=False,
-        average_approximation_function=\
-          tapas_classifier_model.AverageApproximationFunction.RATIO,
+        average_approximation_function=tapas_classifier_model
+        .AverageApproximationFunction.RATIO,
         cell_select_pref=0.5,
         answer_loss_cutoff=100,
         grad_clipping=4.0,
@@ -264,6 +276,184 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
                          "segment_ids", "question_id"):
         self.assertIn(field_name, prediction)
         print("prediction={}".format(prediction))
+    self.assertNotIn(field_name, "column_scores")
+    self.assertNotIn(field_name, "token_scores")
+
+  def _build_pruning_unsupervised_config(self, use_columns, bert_config_file,
+                                         add_classification_loss):
+    if use_columns:
+      selection = _Tapas.Selection.COLUMNS
+    else:
+      selection = _Tapas.Selection.TOKENS
+    return _TablePruningModel(
+        max_num_tokens=6,
+        tapas=_Tapas(
+            bert_config_file=bert_config_file,
+            selection=selection,
+            loss=_Loss(
+                train=_HardSelection(selection_fn=_TOP_K),
+                eval=_HardSelection(selection_fn=_TOP_K),
+                add_classification_loss=add_classification_loss,
+                unsupervised=_Unsupervised(
+                    regularization=_Regularization.NONE))))
+
+
+  def _get_default_params_for_table_pruning(self, table_pruning_config_file):
+    return dict(
+        batch_size=2,
+        init_checkpoint=None,
+        learning_rate=5e-5,
+        num_train_steps=50,
+        num_warmup_steps=10,
+        num_eval_steps=20,
+        use_tpu=False,
+        num_aggregation_labels=4,
+        num_classification_labels=6,
+        aggregation_loss_importance=0.8,
+        use_answer_as_supervision=False,
+        answer_loss_importance=0.001,
+        use_normalized_answer_loss=False,
+        huber_loss_delta=25.0,
+        temperature=1.0,
+        agg_temperature=1.0,
+        use_gumbel_for_cells=False,
+        use_gumbel_for_agg=False,
+        average_approximation_function=tapas_classifier_model
+        .AverageApproximationFunction.RATIO,
+        cell_select_pref=0.5,
+        answer_loss_cutoff=100,
+        grad_clipping=4.0,
+        is_predict=True,
+        max_num_rows=64,
+        max_num_columns=10,
+        average_logits_per_cell=True,
+        select_one_column=False,
+        disable_per_token_loss=False,
+        table_pruning_config_file=table_pruning_config_file)
+
+  def _print_pruning_metrics(self,
+                             eval_metrics,
+                             display_columns=None,
+                             display_pruning_loss=True):
+    metrics = [
+        "eval_sequence_accuracy",
+        "eval_mean_label",
+        "eval_loss",
+        "loss",
+    ]
+    if display_pruning_loss:
+      metrics.append("pruning_loss",)
+    for metric_name in metrics:
+      self.assertIn(metric_name, eval_metrics)
+      tf.logging.info("----------------------------" + metric_name)
+      tf.logging.info(eval_metrics[metric_name])
+
+  @parameterized.named_parameters(
+      ("unsupervised_columns_without_pruning_loss", "unsupervised_columns",
+       False),
+      ("unsupervised_columns_with_pruning_loss", "unsupervised_columns", True),
+      ("unsupervised_tokens_without_pruning_loss", "unsupervised_tokens",
+       False),
+      ("unsupervised_tokens_with_pruning_loss", "unsupervised_tokens", True),
+  )
+  def test_build_model_train_and_evaluate_pruning(self, test_file,
+                                                  add_classification_loss):
+    """Tests that we can train, save, load and evaluate the model."""
+    # Adding the path according to the input file name.
+    bert_config_file = tempfile.mktemp()
+    bert_config = modeling.BertConfig.from_dict({
+        "vocab_size": 10,
+        "type_vocab_size": [3, 256, 256, 2, 256, 256, 10],
+        "num_hidden_layers": 2,
+        "num_attention_heads": 2,
+        "hidden_size": 128,
+        "intermediate_size": 512,
+    })
+    bert_config.to_json_file(bert_config_file)
+    use_pruning_loss = True
+    if test_file == "unsupervised_columns":
+      table_pruning_config = self._build_pruning_unsupervised_config(
+          use_columns=True,
+          bert_config_file=bert_config_file,
+          add_classification_loss=add_classification_loss)
+      use_pruning_loss = add_classification_loss
+    elif test_file == "unsupervised_tokens":
+      table_pruning_config = self._build_pruning_unsupervised_config(
+          use_columns=False,
+          bert_config_file=bert_config_file,
+          add_classification_loss=add_classification_loss)
+      use_pruning_loss = add_classification_loss
+    else:
+      raise ValueError(f"Not supported test_file {test_file}")
+    with tempfile.TemporaryDirectory() as dir_path:
+      table_pruning_config_path = os.path.join(dir_path, "test.textproto")
+      with tf.io.gfile.GFile(table_pruning_config_path, "w") as writer:
+        writer.write(text_format.MessageToString(table_pruning_config))
+      params = self._get_default_params_for_table_pruning(
+          table_pruning_config_file=table_pruning_config_path)
+
+      # For tests max_seq_length = 10, we need max_num_columns = max_seq_length,
+      # as the data generator uses max_seq_length to generate all the data,
+      # including the max_num_columns.
+      params["max_num_columns"] = 10
+
+      # To learn jointly table pruning and tapas,
+      # disable_per_token_loss is activated.
+      params["disable_per_token_loss"] = False
+
+      estimator = self._create_estimator(params)
+      generator_kwargs = self._generator_kwargs(
+          add_aggregation_function_id=True,
+          add_classification_labels=True,
+          add_answer=False,
+          include_id=False)
+
+      def _input_fn(params):
+        return table_dataset_test_utils.create_random_dataset(
+            num_examples=params["batch_size"],
+            batch_size=params["batch_size"],
+            repeat=False,
+            generator_kwargs=generator_kwargs)
+
+      eval_metrics = estimator.evaluate(
+          _input_fn, steps=params["num_eval_steps"])
+      display_columns = "_tokens" not in test_file
+      if use_pruning_loss:
+        self._print_pruning_metrics(
+            eval_metrics, display_columns=display_columns)
+        inital_loss = eval_metrics["pruning_loss"]
+
+        estimator.train(_input_fn, max_steps=params["num_train_steps"])
+
+        eval_metrics = estimator.evaluate(
+            _input_fn, steps=params["num_eval_steps"])
+        self._print_pruning_metrics(
+            eval_metrics, display_columns=display_columns)
+
+        self.assertNotEqual(eval_metrics["pruning_loss"], inital_loss)
+      else:
+        self._print_pruning_metrics(
+            eval_metrics,
+            display_columns=display_columns,
+            display_pruning_loss=False)
+        self.assertNotIn("pruning_loss", eval_metrics)
+        estimator.train(_input_fn, max_steps=params["num_train_steps"])
+
+        eval_metrics = estimator.evaluate(
+            _input_fn, steps=params["num_eval_steps"])
+        self._print_pruning_metrics(
+            eval_metrics,
+            display_columns=display_columns,
+            display_pruning_loss=False)
+        self.assertNotIn("pruning_loss", eval_metrics)
+
+      predictions = estimator.predict(_input_fn)
+      for prediction in predictions:
+        self.assertIn("token_scores", prediction)
+        self.assertIn("column_scores", prediction)
+        tf.logging.info("---------------------------- token_scores")
+        tf.logging.info(prediction["token_scores"])
+        break
 
 
 if __name__ == "__main__":

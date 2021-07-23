@@ -164,6 +164,15 @@ class SerializedExample:
   segment_ids: List[int]
 
 
+def copy_vocab(input_vocab, output_vocab):
+  """Copies vocabulary file and add [EMPTY] token."""
+  with tf.io.gfile.GFile(input_vocab) as input_vocab_file:
+    with tf.io.gfile.GFile(output_vocab, 'w') as output_vocab_file:
+      for token in input_vocab_file:
+        output_vocab_file.write('[EMPTY]\n' if token ==
+                                '[unused0]\n' else token)
+
+
 def _get_pieces(tokens):
   return (token.piece for token in tokens)
 

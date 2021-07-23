@@ -207,10 +207,13 @@ flags.DEFINE_bool(
     "select_one_column", False,
     "Whether the model should be forced to select cells from only one column.")
 
+flags.DEFINE_string("table_pruning_config_file", None,
+                    "To specify the config for table pruning.")
 
-flags.DEFINE_list(
-    "classification_label_weight", [],
-    "List of label:weight to multiply the loss term for each example.")
+
+flags.DEFINE_string(
+    "classification_label_weight", "",
+    "CSV List of label:weight to multiply the loss term for each example.")
 
 flags.DEFINE_bool(
     "reset_output_cls",
@@ -369,9 +372,10 @@ def main(_):
       grad_clipping=FLAGS.grad_clipping,
       classification_label_weight={
           int(pair.split(":")[0]): float(pair.split(":")[1])
-          for pair in FLAGS.classification_label_weight
+          for pair in FLAGS.classification_label_weight.split(",")
           if pair
       },
+      table_pruning_config_file=FLAGS.table_pruning_config_file,
       reset_output_cls=FLAGS.reset_output_cls,
       disabled_features=FLAGS.disabled_features,
       max_num_rows=FLAGS.max_num_rows,
@@ -403,6 +407,12 @@ def main(_):
 
   if FLAGS.do_train:
     tf.io.gfile.makedirs(FLAGS.model_dir)
+    # Copy the table pruning config if pruning is used.
+    if FLAGS.table_pruning_config_file:
+      table_pruning_path = os.path.join(FLAGS.model_dir,
+                                        "table_pruning_config.textproto")
+      tf.io.gfile.copy(
+          FLAGS.table_pruning_config_file, table_pruning_path, overwrite=True)
     bert_config.to_json_file(os.path.join(FLAGS.model_dir, "bert_config.json"))
     tapas_config.to_json_file(
         os.path.join(FLAGS.model_dir, "tapas_config.json"))

@@ -18,6 +18,7 @@
 import csv
 import functools
 import os
+import traceback
 from typing import Text, Optional
 
 from absl import app
@@ -256,12 +257,16 @@ def main(_):
                                         f"eval_{FLAGS.eval_name}"),
         minutes_to_sleep=FLAGS.minutes_to_sleep_before_predictions):
       tf.logging.info("Running eval: %s", FLAGS.eval_name)
-      result = estimator.evaluate(
-          input_fn=eval_input_fn,
-          steps=FLAGS.num_eval_steps,
-          name=FLAGS.eval_name,
-          checkpoint_path=checkpoint)
-      tf.logging.info("Eval result:\n%s", result)
+      try:
+        result = estimator.evaluate(
+            input_fn=eval_input_fn,
+            steps=FLAGS.num_eval_steps,
+            name=FLAGS.eval_name,
+            checkpoint_path=checkpoint)
+        tf.logging.info("Eval result:\n%s", result)
+      except (ValueError, tf.errors.NotFoundError):
+        tf.logging.error("Error getting predictions for checkpoint %s: %s",
+                         checkpoint, traceback.format_exc())
 
   if FLAGS.do_predict:
     predict_input_fn = _get_test_input_fn("predict", FLAGS.input_file_predict)
@@ -287,23 +292,27 @@ def main(_):
         total_steps=total_steps,
         marker_file_prefix=marker_file_prefix,
         single_step=single_step):
-      if predict_input_fn is not None:
-        _predict_and_export_metrics(
-            mode="predict",
-            input_fn=predict_input_fn,
-            checkpoint_path=checkpoint,
-            step=current_step,
-            estimator=estimator,
-            output_dir=prediction_output_dir)
+      try:
+        if predict_input_fn is not None:
+          _predict_and_export_metrics(
+              mode="predict",
+              input_fn=predict_input_fn,
+              checkpoint_path=checkpoint,
+              step=current_step,
+              estimator=estimator,
+              output_dir=prediction_output_dir)
 
-      if eval_input_fn is not None:
-        _predict_and_export_metrics(
-            mode="eval",
-            input_fn=eval_input_fn,
-            checkpoint_path=checkpoint,
-            step=current_step,
-            estimator=estimator,
-            output_dir=prediction_output_dir)
+        if eval_input_fn is not None:
+          _predict_and_export_metrics(
+              mode="eval",
+              input_fn=eval_input_fn,
+              checkpoint_path=checkpoint,
+              step=current_step,
+              estimator=estimator,
+              output_dir=prediction_output_dir)
+      except (ValueError, tf.errors.NotFoundError):
+        tf.logging.error("Error getting predictions for checkpoint %s: %s",
+                         checkpoint, traceback.format_exc())
 
 
 if __name__ == "__main__":

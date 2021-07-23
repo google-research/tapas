@@ -21,11 +21,11 @@ import tensorflow.compat.v1 as tf
 
 
 
-
 def create_model(
     features,
     mode,
     bert_config,
+    token_weights=None,
     disabled_features=None,
     disable_position_embeddings=False,
     reset_position_index_per_cell=False,
@@ -51,6 +51,7 @@ def create_model(
       is_training=is_training,
       input_ids=features["input_ids"],
       input_mask=features["input_mask"],
+      token_weights=token_weights,
       token_type_ids=token_type_ids,
       use_position_embeddings=not disable_position_embeddings,
       reset_position_index_per_cell=reset_position_index_per_cell,

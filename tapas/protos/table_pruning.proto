@@ -1,0 +1,98 @@
+// Copyright 2019 The Google AI Language Team Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+syntax = "proto2";
+
+package language.tapas;
+
+// The loss used to learn the weights.
+message Loss {
+  // The hard selection strategy used for train and/or for test.
+  message HardSelection {
+    enum SelectionFn {
+      // No hard selection is used. Select all the tokens.
+      ALL = 0;
+      // Selects the best tokens up to max_num_tokens. Returns the TOP_K scores.
+      TOP_K = 1;
+      // Selects the best tokens up to max_num_tokens.
+      // Returns the TOP_K mask values in 0,1.
+      MASK_TOP_K = 2;
+    }
+    optional SelectionFn selection_fn = 1;
+  }
+
+
+  // Uses an unsupervised model to learn the required columns.
+  // The back probagation is always activated.
+  message Unsupervised {
+    enum Regularization {
+      // No Regularization is used.
+      NONE = 0;
+      // Computes L1 over all the tokens scores.
+      L1 = 1;
+      // Computes L2 over all the tokens scores.
+      L2 = 2;
+      // Computes l1 on tokens sequence then l2 on the batch.
+      L1_L2 = 3;
+    }
+    optional Regularization regularization = 5;
+  }
+
+  oneof loss {
+    Unsupervised unsupervised = 200;
+  }
+
+  optional HardSelection train = 400;
+  optional HardSelection eval = 500;
+  // Enables the pruning model to use a loss similar to the tapas model.
+  optional bool add_classification_loss = 600 [default = false];
+}
+
+// Uses the average cosine similarity to score the tokens.
+message AvgCosSimilarity {
+  // Enables the use of positional embeddingins to compute the average cosine
+  // similarity.
+  optional bool use_positional_embeddings = 2 [default = false];
+  // The loss used to learn the weights.
+  optional Loss loss = 3;
+}
+
+// Uses a TAPAS model to score the columns or the tokens.
+message TAPAS {
+  // Specifies the use of the columns scores or tokens scores.
+  enum Selection {
+    COLUMNS = 0;
+    TOKENS = 1;
+  }
+  optional Selection selection = 2;
+  optional string bert_config_file = 3;
+  optional string bert_init_checkpoint = 4;
+  optional bool reset_position_index_per_cell = 6 [default = false];
+
+  // The loss used to learn the weights.
+  optional Loss loss = 5;
+}
+
+// Select the k first tokens up to max_num_tokens.
+// If max_num_tokens = tapas_max_num_tokens no table pruing is used.
+message FirstTokens {}
+
+// Options for table pruning models.
+message TablePruningModel {
+  optional int32 max_num_tokens = 1;
+  oneof table_pruning_model {
+    AvgCosSimilarity avg_cos_similarity = 2;
+    TAPAS tapas = 3;
+    FirstTokens first_tokens = 4;
+  }
+}

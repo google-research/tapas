@@ -27,7 +27,13 @@ Size  | Hard Negatives | Link
 LARGE | No             | [tapas_nq_reader_large.zip](https://storage.googleapis.com/tapas_models/2021_04_27/tapas_nq_reader_large.zip)
 LARGE | Yes            | [tapas_nq_hn_reader_large.zip](https://storage.googleapis.com/tapas_models/2021_04_27/tapas_nq_hn_reader_large.zip)
 
-## Generate Data
+## Load directly the released data
+```bash
+mdkir -p "${nq_data_dir}"
+gsutil -m cp -R gs://tapas_models/2021_07_22/nq_tables/* "${nq_data_dir}"
+```
+
+## Or generate the data
 
 The following pipeline will generate the subset of Natural Questions where
 the answers are part of tables.
@@ -262,5 +268,5 @@ See also the Wikipedia [Copyrights](https://en.wikipedia.org/wiki/Wikipedia:Copy
 
 ## How to cite this data and code?
 
-You can cite the [paper](https://arxiv.org/abs/2103.12011) to appear in
-NAACL 2021.
+You can cite the [paper](https://arxiv.org/abs/2103.12011) and the released data
+to appear in NAACL 2021.

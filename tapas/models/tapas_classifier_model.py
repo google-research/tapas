@@ -20,7 +20,6 @@ import json
 from typing import Iterable, Text, Optional, List, Set, Mapping
 
 import dataclasses
-
 from tapas.datasets import dataset
 from tapas.datasets import table_dataset
 from tapas.models import segmented_tensor
@@ -29,6 +28,7 @@ from tapas.models.bert import modeling
 from tapas.models.bert import optimization
 from tapas.models.bert import table_bert
 from tapas.utils import span_prediction_utils
+from tapas.utils import table_pruning
 import tensorflow.compat.v1 as tf
 import tensorflow_probability as tfp
 
@@ -97,6 +97,7 @@ class TapasClassifierConfig:
   mask_examples_without_labels: This is useful for e2e retrieval where we do
   want to train on negative tables but we don't want the model to learn to
   predict no answer for them.
+  table_pruning_config_file: The config file of table pruning.
   """
 
   bert_config: modeling.BertConfig
@@ -136,6 +137,7 @@ class TapasClassifierConfig:
   reset_output_cls: bool = False
   classification_label_weight: Optional[Mapping[int, float]] = None
   mask_examples_without_labels: bool = False
+  table_pruning_config_file: Optional[Text] = None
 
   def to_json_string(self):
     """Serializes this instance to a JSON string."""
@@ -832,6 +834,7 @@ def _calculate_eval_metrics_fn(
     logits_aggregation,
     classification_class_index,
     logits_cls,
+    table_pruning_loss,
 ):
   """Calculates metrics for both cells and aggregation functions."""
   logits.shape.assert_has_rank(2)
@@ -893,6 +896,8 @@ def _calculate_eval_metrics_fn(
         "eval_aggregation_accuracy": accuracy_agg,
         "eval_joint_accuracy": joint_accuracy,
     })
+  if table_pruning_loss is not None:
+    metrics["pruning_loss"] = tf.metrics.mean(table_pruning_loss)
   return metrics
 
 
@@ -915,7 +920,26 @@ def model_fn_builder(
     """The `model_fn` for TPUEstimator."""
 
     del labels  # Unused.
-
+    table_selector = table_pruning.create_selector(
+        table_pruning_config_file=config.table_pruning_config_file,
+        vocab_size=config.bert_config.vocab_size,
+        hidden_size=config.bert_config.hidden_size,
+        initializer_range=config.bert_config.initializer_range,
+        max_num_columns=config.max_num_columns,
+        max_num_rows=config.max_num_rows,
+        type_vocab_size=config.bert_config.type_vocab_size,
+        max_position_embeddings=config.bert_config.max_position_embeddings,
+        disabled_features=config.disabled_features,
+        disable_position_embeddings=config.disable_position_embeddings)
+    table_selector_output = table_selector.compute_scores(mode, features)
+    column_scores = table_selector_output.column_scores
+    column_probs = table_selector_output.column_probs
+    column_score_mask = table_selector_output.column_score_mask
+    token_scores = table_selector_output.reduced_token_scores
+    gather_op = table_selector_output.gather_op
+    initial_features = features
+    if gather_op is not None:
+      features = gather_op(initial_features, table_selector_output.token_scores)
 
     tf.logging.info("*** Features ***")
     for name in sorted(features):
@@ -943,6 +967,7 @@ def model_fn_builder(
         features=features,
         mode=mode,
         bert_config=config.bert_config,
+        token_weights=token_scores,
         disabled_features=config.disabled_features,
         disable_position_embeddings=config.disable_position_embeddings,
         reset_position_index_per_cell=config.reset_position_index_per_cell,
@@ -969,7 +994,19 @@ def model_fn_builder(
         column_ids=column_ids,
         classification_class_index=classification_class_index)
     total_loss = outputs.total_loss
-
+    # Add a loss for pruning similar to the TAPAS loss in case it's specified
+    # in the config by checking should_add_classification_loss.
+    table_pruning_loss = table_pruning.get_table_pruning_loss(
+        table_selector=table_selector,
+        table_selector_output=table_selector_output,
+        do_model_aggregation=do_model_aggregation,
+        do_model_classification=do_model_classification,
+        initial_features=initial_features,
+        config=config,
+        is_training=is_training,
+        classification_fun=_get_classification_outputs)
+    if table_pruning_loss is not None:
+      total_loss += table_pruning_loss
 
     tvars = tf.trainable_variables()
     if config.reset_output_cls:
@@ -992,6 +1029,8 @@ def model_fn_builder(
 
     add_init_checkpoint(config.init_checkpoint)
 
+    add_init_checkpoint(
+        table_selector.bert_init_checkpoint, scope=table_pruning.PRUNING_SCOPE)
 
     if init_from_checkpoints:
       if config.use_tpu:
@@ -1048,6 +1087,7 @@ def model_fn_builder(
               outputs.logits_aggregation,
               classification_class_index,
               outputs.logits_cls,
+              table_pruning_loss,
           ])
       output_spec = tf.estimator.tpu.TPUEstimatorSpec(
           mode=mode,
@@ -1063,6 +1103,10 @@ def model_fn_builder(
           "segment_ids": features["segment_ids"],
           "question_id_ints": features["question_id_ints"],
       }
+      if column_scores is not None:
+        predictions["column_scores"] = column_scores
+      if table_selector_output.token_scores is not None:
+        predictions["token_scores"] = table_selector_output.token_scores
       if "question_id" in features:
         # Only available when predicting on GPU.
         predictions["question_id"] = features["question_id"]
