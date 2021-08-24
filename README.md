@@ -5,6 +5,13 @@ in the paper [TAPAS: Weakly Supervised Table Parsing via Pre-training](#how-to-c
 
 ## News
 
+#### 2021/08/24
+* Added a [colab](http://tiny.cc/tapas-retrieval-colab) to try predictions on open domain question answering.
+
+#### 2021/08/20
+* New models and code for [DoT: An efficient Double Transformer for NLP tasks with tables](https://arxiv.org/abs/2106.00479) released
+[here](https://github.com/google-research/tapas/blob/master/DOT.md).
+
 #### 2021/07/23
 * New release of NQ with tables data used in [Open Domain Question Answering over Tables via Dense Retrieval](https://arxiv.org/abs/2103.12011). The use of the data is detailed [here](https://github.com/google-research/tapas/blob/master/DENSE_TABLE_RETRIEVER.md).
 

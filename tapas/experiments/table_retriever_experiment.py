@@ -28,6 +28,8 @@ from tapas.scripts import eval_table_retriever_utils
 from tapas.utils import experiment_utils  # pylint: disable=unused-import
 import tensorflow.compat.v1 as tf
 
+tf.disable_v2_behavior()
+
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string("data_format", "tfrecord", "The input data format.")

@@ -29,7 +29,7 @@ LARGE | Yes            | [tapas_nq_hn_reader_large.zip](https://storage.googleap
 
 ## Load directly the released data
 ```bash
-mdkir -p "${nq_data_dir}"
+mkdir -p "${nq_data_dir}"
 gsutil -m cp -R gs://tapas_models/2021_07_22/nq_tables/* "${nq_data_dir}"
 ```
 

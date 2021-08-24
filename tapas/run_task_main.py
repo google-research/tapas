@@ -15,6 +15,7 @@
 # Lint as: python3
 """Script for creating TF examples, training and evaluation."""
 
+import dataclasses
 import enum
 import functools
 import os
@@ -25,7 +26,6 @@ from typing import Mapping, Optional, Text
 from absl import app
 from absl import flags
 from absl import logging
-import dataclasses
 from tapas.experiments import prediction_utils as exp_prediction_utils
 from tapas.models import tapas_classifier_model
 from tapas.models.bert import modeling
@@ -141,6 +141,9 @@ flags.DEFINE_boolean(
     'drop_rows_to_fit', False,
     'Drop last rows if table does not fit within max sequence '
     'length.')
+
+flags.DEFINE_string('table_pruning_config_file', None,
+                    'Table pruning config file.')
 
 _MAX_TABLE_ID = 512
 _MAX_PREDICTIONS_PER_SEQ = 20
@@ -380,7 +383,7 @@ def _train_and_predict(
   if task == tasks.Task.SQA:
     num_aggregation_labels = 0
     num_classification_labels = 0
-    use_answer_as_supervision = None
+    use_answer_as_supervision = False
   elif task in [
       tasks.Task.WTQ, tasks.Task.WIKISQL, tasks.Task.WIKISQL_SUPERVISED
   ]:
@@ -394,7 +397,7 @@ def _train_and_predict(
   elif task == tasks.Task.NQ_RETRIEVAL:
     num_aggregation_labels = 0
     num_classification_labels = 2
-    use_answer_as_supervision = None
+    use_answer_as_supervision = False
   else:
     raise ValueError(f'Unknown task: {task.name}')
 
@@ -462,7 +465,8 @@ def _train_and_predict(
                       tapas_classifier_model.SpanPredictionMode.NONE)),
       disable_position_embeddings=False,
       reset_output_cls=FLAGS.reset_output_cls,
-      reset_position_index_per_cell=FLAGS.reset_position_index_per_cell)
+      reset_position_index_per_cell=FLAGS.reset_position_index_per_cell,
+      table_pruning_config_file=FLAGS.table_pruning_config_file)
 
   model_fn = tapas_classifier_model.model_fn_builder(tapas_config)
 
@@ -684,7 +688,7 @@ def _predict_sequence_for_set(
       max_predictions_per_seq=_MAX_PREDICTIONS_PER_SEQ,
       add_aggregation_function_id=do_model_aggregation,
       add_classification_labels=False,
-      add_answer=use_answer_as_supervision)
+      add_answer=use_answer_as_supervision)  # pytype: disable=wrong-arg-types
   result = exp_prediction_utils.compute_prediction_sequence(
       estimator=estimator, examples_by_position=examples_by_position)
   exp_prediction_utils.write_predictions(
