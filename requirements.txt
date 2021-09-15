@@ -13,3 +13,4 @@ nltk~=3.5
 beautifulsoup4==4.9.3
 html5lib==1.1
 gensim~=3.8.3
+lxml~=4.6.0

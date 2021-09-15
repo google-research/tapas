@@ -28,6 +28,7 @@ from tapas.experiments import prediction_utils
 from tapas.models import tapas_classifier_model
 from tapas.scripts import calc_metrics_utils
 from tapas.scripts import prediction_utils as pred_utils
+from tapas.utils import attention_utils
 from tapas.utils import experiment_utils  # pylint: disable=unused-import
 import tensorflow.compat.v1 as tf
 FLAGS = flags.FLAGS
@@ -210,6 +211,37 @@ flags.DEFINE_bool(
 flags.DEFINE_string("table_pruning_config_file", None,
                     "To specify the config for table pruning.")
 
+flags.DEFINE_enum(
+    "restrict_attention_mode",
+    "full",
+    [
+        "full",
+        "same_colum_or_row",
+        "headwise_same_colum_or_row",
+        "headwise_efficient",
+    ],
+    "Options to restrict attention if tokens are in the same row/column.")
+
+flags.DEFINE_integer(
+    "restrict_attention_bucket_size", 0, "For sparse attention modes, further "
+    "restrict attention to consecutive buckets of uniform size.")
+
+flags.DEFINE_integer(
+    "restrict_attention_header_size", None, "For sparse attention modes, size "
+    "of the first section that will attend to/from everything else.")
+
+flags.DEFINE_float(
+    "restrict_attention_row_heads_ratio", 0.5, "For sparse attention modes, "
+    "proportion of heads that should focus on rows vs columns.")
+
+flags.DEFINE_bool("cell_cross_entropy", False,
+                  "Whether to use cross entropy for cell selection loss.")
+
+flags.DEFINE_bool(
+    "cell_cross_entropy_hard_em", False,
+    "When using cell cross entropy, whether to use hard or soft "
+    "EM for cases with more than one ground truth cell.")
+
 
 flags.DEFINE_string(
     "classification_label_weight", "",
@@ -376,6 +408,15 @@ def main(_):
           if pair
       },
       table_pruning_config_file=FLAGS.table_pruning_config_file,
+      restrict_attention_mode=(attention_utils.RestrictAttentionMode(
+          FLAGS.restrict_attention_mode)),
+      restrict_attention_bucket_size=FLAGS.restrict_attention_bucket_size,
+      restrict_attention_header_size=FLAGS.restrict_attention_header_size,
+      restrict_attention_row_heads_ratio=(
+          FLAGS.restrict_attention_row_heads_ratio),
+      mask_examples_without_labels=FLAGS.mask_examples_without_labels,
+      cell_cross_entropy_hard_em=FLAGS.cell_cross_entropy_hard_em,
+      cell_cross_entropy=FLAGS.cell_cross_entropy,
       reset_output_cls=FLAGS.reset_output_cls,
       disabled_features=FLAGS.disabled_features,
       max_num_rows=FLAGS.max_num_rows,

@@ -26,3 +26,7 @@ class Task(enum.Enum):
   WIKISQL_SUPERVISED = 3
   TABFACT = 4
   NQ_RETRIEVAL = 7
+  HYBRIDQA_RC = 8  # Reading comprehension (RC) of HybridQA.
+  HYBRIDQA_E2E = 9  # HybridQA RC using preds of HybridQA Cell Selection.
+  HYBRIDQA = 6
+  SEM_TAB_FACT = 10  # https://sites.google.com/corp/view/sem-tab-facts

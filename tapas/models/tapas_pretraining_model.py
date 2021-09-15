@@ -21,6 +21,7 @@ from tapas.datasets import table_dataset
 from tapas.models.bert import modeling
 from tapas.models.bert import optimization
 from tapas.models.bert import table_bert
+from tapas.utils import attention_utils
 
 import tensorflow.compat.v1 as tf
 
@@ -110,16 +111,23 @@ def _get_masked_lm_output(bert_config, input_tensor, output_weights, positions,
   return (loss, per_example_loss, log_probs, predictions)
 
 
-def model_fn_builder(bert_config,
-                     init_checkpoint,
-                     learning_rate,
-                     num_train_steps,
-                     num_warmup_steps,
-                     use_tpu,
-                     disabled_features = None,
-                     disable_position_embeddings = False,
-                     reset_position_index_per_cell = False,
-                     proj_value_length = None):
+def model_fn_builder(
+    bert_config,
+    init_checkpoint,
+    learning_rate,
+    num_train_steps,
+    num_warmup_steps,
+    use_tpu,
+    restrict_attention_mode = (
+        attention_utils.RestrictAttentionMode.FULL),
+    restrict_attention_bucket_size = 0,
+    restrict_attention_header_size = None,
+    restrict_attention_row_heads_ratio = 0.5,
+    disabled_features = None,
+    disable_position_embeddings = False,
+    reset_position_index_per_cell = False,
+    proj_value_length = None,
+):
   """Returns `model_fn` closure for TPUEstimator."""
 
   def model_fn(features, labels, mode, params):
@@ -139,6 +147,10 @@ def model_fn_builder(bert_config,
         features=features,
         mode=mode,
         bert_config=bert_config,
+        restrict_attention_mode=restrict_attention_mode,
+        restrict_attention_bucket_size=restrict_attention_bucket_size,
+        restrict_attention_header_size=restrict_attention_header_size,
+        restrict_attention_row_heads_ratio=restrict_attention_row_heads_ratio,
         disabled_features=disabled_features,
         disable_position_embeddings=disable_position_embeddings,
         reset_position_index_per_cell=reset_position_index_per_cell,

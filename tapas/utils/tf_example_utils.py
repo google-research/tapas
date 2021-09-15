@@ -16,18 +16,21 @@
 """Utilities for converting interactions to TF examples."""
 
 import collections
+import dataclasses
 import hashlib
 import random
 from typing import Iterable, List, Mapping, Optional, Text, Tuple
 
 from absl import logging
 from apache_beam import metrics as beam_metrics
-import dataclasses
+from tapas.protos import annotated_text_pb2
 from tapas.protos import interaction_pb2
 from tapas.protos import table_selection_pb2
 from tapas.utils import constants
 from tapas.utils import interpretation_utils
 from tapas.utils import number_annotation_utils
+from tapas.utils import sentence_tokenizer
+from tapas.utils import text_index
 from tapas.utils import text_utils
 import tensorflow.compat.v1 as tf
 
@@ -348,6 +351,74 @@ def _get_answer_ids(column_ids, row_ids,
   return answer_ids
 
 
+def _get_annotation_name(identifier):
+  """Extracts the clean title from a Wikipedia identifier."""
+  # Example input: /wiki/New_York_City -> New York City
+  return identifier.split('/')[-1].replace('_', ' ')
+
+
+def _add_entity_descriptions_to_table(
+    question,
+    descriptions,
+    table,
+    use_entity_title,
+    num_results,
+):
+  """Expand table cells with the descriptions of the entities mentioned.
+
+  This function will add entity descriptions inside the Table proto by expanding
+  the content of each cell according to entities mentioned in that cell. The
+  sentences in the descriptions will be ranked by similarity to the question and
+  only the top results will be included.
+
+  Args:
+    question: Question proto containing the question text. The text will be used
+      to filter only a subset of the descriptions using a similarity criteria.
+    descriptions: A map that contains for entity id, its textual description.
+    table: Table to be modified in-place. Some cells may contain annotation
+      extensions with entity ids that will be expanded with their descriptions.
+    use_entity_title: Prepend the entity title to entity descriptions.
+    num_results: Limit on the number of entities to expand with a description.
+  """
+  descriptions = {
+      key: sentence_tokenizer.tokenize(description)
+      for key, description in descriptions.items()
+  }
+  documents = []
+  for sentences in descriptions.values():
+    for sentence in sentences:
+      documents.append(sentence)
+
+  search_results = text_index.TextIndex(documents).search(
+      question.text, num_results=num_results)
+  logging.log_first_n(logging.INFO,
+                      '%s selected entity annotations for %s:  %s', 100,
+                      question.id, question.text, search_results)
+  search_results_set = {r.text for r in search_results}
+
+  buckets = [1, 2, 3, 4, 5, 10, 25, 50, 100]
+  sentences_kept = len(search_results_set)
+  sentences_discarded = len(documents) - sentences_kept
+  beam_metrics.Metrics.counter(
+      _NS, _get_buckets(sentences_kept, buckets, 'Descriptions kept')).inc()
+  beam_metrics.Metrics.counter(
+      _NS, _get_buckets(sentences_discarded, buckets,
+                        'Descriptions discarded')).inc()
+
+  annotated_cell_ext = annotated_text_pb2.AnnotatedText.annotated_cell_ext
+  for row in table.rows:
+    for cell in row.cells:
+      if annotated_cell_ext in cell.Extensions:
+        for annotation in cell.Extensions[annotated_cell_ext].annotations:
+          sentences = descriptions[annotation.identifier]
+          filtered_sentences = ' '.join(
+              sent for sent in sentences if sent in search_results_set)
+          if filtered_sentences:
+            if use_entity_title:
+              annotation_name = _get_annotation_name(annotation.identifier)
+              cell.text += f' ( {annotation_name} : {filtered_sentences} )'
+            else:
+              cell.text += f' ( {filtered_sentences} )'
 
 
 class TapasTokenizer:
@@ -1148,6 +1219,9 @@ class ToClassifierTensorflowExample(ToTrimmedTensorflowExample):
     self._update_answer_coordinates = config.update_answer_coordinates
     self._drop_rows_to_fit = config.drop_rows_to_fit
     self._trim_question_ids = config.trim_question_ids
+    self._expand_entity_descriptions = config.expand_entity_descriptions
+    self._use_entity_title = config.use_entity_title
+    self._entity_descriptions_sentence_limit = config.entity_descriptions_sentence_limit
 
   def _tokenize_extended_question(
       self,
@@ -1183,6 +1257,18 @@ class ToClassifierTensorflowExample(ToTrimmedTensorflowExample):
           _NS, 'Conversion skipped (answer not valid)').inc()
       raise ValueError('Invalid answer')
 
+    annotation_descriptions_ext = (
+        annotated_text_pb2.AnnotationDescription.annotation_descriptions_ext)
+    if (self._expand_entity_descriptions and
+        annotation_descriptions_ext in interaction.Extensions):
+      descriptions = interaction.Extensions[
+          annotation_descriptions_ext].descriptions
+      _add_entity_descriptions_to_table(
+          question,
+          descriptions,
+          table,
+          use_entity_title=self._use_entity_title,
+          num_results=self._entity_descriptions_sentence_limit)
 
     text_tokens = self._tokenize_extended_question(question, table)
     tokenized_table = self._tokenize_table(table)

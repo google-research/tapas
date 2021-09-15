@@ -1,0 +1,352 @@
+<document>
+ <table id="Table 2">
+  <caption text="
+
+   Networks across East Asia.
+
+">
+  </caption>
+  <legend text="
+
+   Data are for 1290 firms across nine East Asian economies. All network data are assembled by the authors, and are cross-sectional for 2008. Table reports country-level statistics on board networks, family networks, state networks, and political networks. Minimum values are everywhere 0.
+
+    board network
+
+   counts the amount of board/executive interlocks.
+
+    Political network
+
+   counts the amount of board/executive interlocks with politically-connected firms.
+
+    Family network
+
+   counts the amount of board/executive interlocks with family-controlled firms.
+
+    State network
+
+   counts the amount of board/executive interlocks with state-owned firms.
+
+">
+  </legend>
+  <row row="0">
+   <cell col-end="0" col-start="0" row-end="1" row-start="0" text="Country">
+   </cell>
+   <cell col-end="1" col-start="1" row-end="1" row-start="0" text="N">
+   </cell>
+   <cell col-end="4" col-start="2" row-end="0" row-start="0" text="Board network">
+   </cell>
+   <cell col-end="7" col-start="5" row-end="0" row-start="0" text="Family network">
+   </cell>
+   <cell col-end="10" col-start="8" row-end="0" row-start="0" text="State network">
+   </cell>
+   <cell col-end="13" col-start="11" row-end="0" row-start="0" text="Political network">
+   </cell>
+  </row>
+  <row row="1">
+   <cell col-end="2" col-start="2" row-end="1" row-start="1" text="mean">
+   </cell>
+   <cell col-end="3" col-start="3" row-end="1" row-start="1" text="SD">
+   </cell>
+   <cell col-end="4" col-start="4" row-end="1" row-start="1" text="max">
+   </cell>
+   <cell col-end="5" col-start="5" row-end="1" row-start="1" text="mean">
+   </cell>
+   <cell col-end="6" col-start="6" row-end="1" row-start="1" text="SD">
+   </cell>
+   <cell col-end="7" col-start="7" row-end="1" row-start="1" text="max">
+   </cell>
+   <cell col-end="8" col-start="8" row-end="1" row-start="1" text="mean">
+   </cell>
+   <cell col-end="9" col-start="9" row-end="1" row-start="1" text="SD">
+   </cell>
+   <cell col-end="10" col-start="10" row-end="1" row-start="1" text="max">
+   </cell>
+   <cell col-end="11" col-start="11" row-end="1" row-start="1" text="mean">
+   </cell>
+   <cell col-end="12" col-start="12" row-end="1" row-start="1" text="SD">
+   </cell>
+   <cell col-end="13" col-start="13" row-end="1" row-start="1" text="max">
+   </cell>
+  </row>
+  <row row="2">
+   <cell col-end="0" col-start="0" row-end="2" row-start="2" text="Hong Kong">
+   </cell>
+   <cell col-end="1" col-start="1" row-end="2" row-start="2" text="133">
+   </cell>
+   <cell col-end="2" col-start="2" row-end="2" row-start="2" text="5.12">
+   </cell>
+   <cell col-end="3" col-start="3" row-end="2" row-start="2" text="6.1">
+   </cell>
+   <cell col-end="4" col-start="4" row-end="2" row-start="2" text="33">
+   </cell>
+   <cell col-end="5" col-start="5" row-end="2" row-start="2" text="2.62">
+   </cell>
+   <cell col-end="6" col-start="6" row-end="2" row-start="2" text="4.51">
+   </cell>
+   <cell col-end="7" col-start="7" row-end="2" row-start="2" text="26">
+   </cell>
+   <cell col-end="8" col-start="8" row-end="2" row-start="2" text="1.00">
+   </cell>
+   <cell col-end="9" col-start="9" row-end="2" row-start="2" text="1.41">
+   </cell>
+   <cell col-end="10" col-start="10" row-end="2" row-start="2" text="6">
+   </cell>
+   <cell col-end="11" col-start="11" row-end="2" row-start="2" text="0.67">
+   </cell>
+   <cell col-end="12" col-start="12" row-end="2" row-start="2" text="1.37">
+   </cell>
+   <cell col-end="13" col-start="13" row-end="2" row-start="2" text="6">
+   </cell>
+  </row>
+  <row row="3">
+   <cell col-end="0" col-start="0" row-end="3" row-start="3" text="Indonesia">
+   </cell>
+   <cell col-end="1" col-start="1" row-end="3" row-start="3" text="169">
+   </cell>
+   <cell col-end="2" col-start="2" row-end="3" row-start="3" text="1.64">
+   </cell>
+   <cell col-end="3" col-start="3" row-end="3" row-start="3" text="3.31">
+   </cell>
+   <cell col-end="4" col-start="4" row-end="3" row-start="3" text="23">
+   </cell>
+   <cell col-end="5" col-start="5" row-end="3" row-start="3" text="0.95">
+   </cell>
+   <cell col-end="6" col-start="6" row-end="3" row-start="3" text="2.64">
+   </cell>
+   <cell col-end="7" col-start="7" row-end="3" row-start="3" text="17">
+   </cell>
+   <cell col-end="8" col-start="8" row-end="3" row-start="3" text="0.14">
+   </cell>
+   <cell col-end="9" col-start="9" row-end="3" row-start="3" text="0.38">
+   </cell>
+   <cell col-end="10" col-start="10" row-end="3" row-start="3" text="2">
+   </cell>
+   <cell col-end="11" col-start="11" row-end="3" row-start="3" text="0.22">
+   </cell>
+   <cell col-end="12" col-start="12" row-end="3" row-start="3" text="1.09">
+   </cell>
+   <cell col-end="13" col-start="13" row-end="3" row-start="3" text="9">
+   </cell>
+  </row>
+  <row row="4">
+   <cell col-end="0" col-start="0" row-end="4" row-start="4" text="Japan">
+   </cell>
+   <cell col-end="1" col-start="1" row-end="4" row-start="4" text="126">
+   </cell>
+   <cell col-end="2" col-start="2" row-end="4" row-start="4" text="1.84">
+   </cell>
+   <cell col-end="3" col-start="3" row-end="4" row-start="4" text="2.33">
+   </cell>
+   <cell col-end="4" col-start="4" row-end="4" row-start="4" text="15">
+   </cell>
+   <cell col-end="5" col-start="5" row-end="4" row-start="4" text="0.07">
+   </cell>
+   <cell col-end="6" col-start="6" row-end="4" row-start="4" text="0.42">
+   </cell>
+   <cell col-end="7" col-start="7" row-end="4" row-start="4" text="3">
+   </cell>
+   <cell col-end="8" col-start="8" row-end="4" row-start="4" text="0.09">
+   </cell>
+   <cell col-end="9" col-start="9" row-end="4" row-start="4" text="0.31">
+   </cell>
+   <cell col-end="10" col-start="10" row-end="4" row-start="4" text="2">
+   </cell>
+   <cell col-end="11" col-start="11" row-end="4" row-start="4" text="0.00">
+   </cell>
+   <cell col-end="12" col-start="12" row-end="4" row-start="4" text="0.00">
+   </cell>
+   <cell col-end="13" col-start="13" row-end="4" row-start="4" text="0">
+   </cell>
+  </row>
+  <row row="5">
+   <cell col-end="0" col-start="0" row-end="5" row-start="5" text="South Korea">
+   </cell>
+   <cell col-end="1" col-start="1" row-end="5" row-start="5" text="133">
+   </cell>
+   <cell col-end="2" col-start="2" row-end="5" row-start="5" text="2.5">
+   </cell>
+   <cell col-end="3" col-start="3" row-end="5" row-start="5" text="2.8">
+   </cell>
+   <cell col-end="4" col-start="4" row-end="5" row-start="5" text="21">
+   </cell>
+   <cell col-end="5" col-start="5" row-end="5" row-start="5" text="1.09">
+   </cell>
+   <cell col-end="6" col-start="6" row-end="5" row-start="5" text="1.37">
+   </cell>
+   <cell col-end="7" col-start="7" row-end="5" row-start="5" text="6">
+   </cell>
+   <cell col-end="8" col-start="8" row-end="5" row-start="5" text="0.15">
+   </cell>
+   <cell col-end="9" col-start="9" row-end="5" row-start="5" text="0.40">
+   </cell>
+   <cell col-end="10" col-start="10" row-end="5" row-start="5" text="2">
+   </cell>
+   <cell col-end="11" col-start="11" row-end="5" row-start="5" text="0.02">
+   </cell>
+   <cell col-end="12" col-start="12" row-end="5" row-start="5" text="0.15">
+   </cell>
+   <cell col-end="13" col-start="13" row-end="5" row-start="5" text="1">
+   </cell>
+  </row>
+  <row row="6">
+   <cell col-end="0" col-start="0" row-end="6" row-start="6" text="Malaysia">
+   </cell>
+   <cell col-end="1" col-start="1" row-end="6" row-start="6" text="281">
+   </cell>
+   <cell col-end="2" col-start="2" row-end="6" row-start="6" text="7.35">
+   </cell>
+   <cell col-end="3" col-start="3" row-end="6" row-start="6" text="6.61">
+   </cell>
+   <cell col-end="4" col-start="4" row-end="6" row-start="6" text="37">
+   </cell>
+   <cell col-end="5" col-start="5" row-end="6" row-start="6" text="1.07">
+   </cell>
+   <cell col-end="6" col-start="6" row-end="6" row-start="6" text="1.94">
+   </cell>
+   <cell col-end="7" col-start="7" row-end="6" row-start="6" text="8">
+   </cell>
+   <cell col-end="8" col-start="8" row-end="6" row-start="6" text="2.15">
+   </cell>
+   <cell col-end="9" col-start="9" row-end="6" row-start="6" text="3.09">
+   </cell>
+   <cell col-end="10" col-start="10" row-end="6" row-start="6" text="18">
+   </cell>
+   <cell col-end="11" col-start="11" row-end="6" row-start="6" text="0.36">
+   </cell>
+   <cell col-end="12" col-start="12" row-end="6" row-start="6" text="0.74">
+   </cell>
+   <cell col-end="13" col-start="13" row-end="6" row-start="6" text="5">
+   </cell>
+  </row>
+  <row row="7">
+   <cell col-end="0" col-start="0" row-end="7" row-start="7" text="Philippines">
+   </cell>
+   <cell col-end="1" col-start="1" row-end="7" row-start="7" text="98">
+   </cell>
+   <cell col-end="2" col-start="2" row-end="7" row-start="7" text="8.52">
+   </cell>
+   <cell col-end="3" col-start="3" row-end="7" row-start="7" text="8.91">
+   </cell>
+   <cell col-end="4" col-start="4" row-end="7" row-start="7" text="38">
+   </cell>
+   <cell col-end="5" col-start="5" row-end="7" row-start="7" text="5.33">
+   </cell>
+   <cell col-end="6" col-start="6" row-end="7" row-start="7" text="6.16">
+   </cell>
+   <cell col-end="7" col-start="7" row-end="7" row-start="7" text="21">
+   </cell>
+   <cell col-end="8" col-start="8" row-end="7" row-start="7" text="0.71">
+   </cell>
+   <cell col-end="9" col-start="9" row-end="7" row-start="7" text="1.59">
+   </cell>
+   <cell col-end="10" col-start="10" row-end="7" row-start="7" text="10">
+   </cell>
+   <cell col-end="11" col-start="11" row-end="7" row-start="7" text="0.20">
+   </cell>
+   <cell col-end="12" col-start="12" row-end="7" row-start="7" text="0.81">
+   </cell>
+   <cell col-end="13" col-start="13" row-end="7" row-start="7" text="6">
+   </cell>
+  </row>
+  <row row="8">
+   <cell col-end="0" col-start="0" row-end="8" row-start="8" text="Singapore">
+   </cell>
+   <cell col-end="1" col-start="1" row-end="8" row-start="8" text="116">
+   </cell>
+   <cell col-end="2" col-start="2" row-end="8" row-start="8" text="3.52">
+   </cell>
+   <cell col-end="3" col-start="3" row-end="8" row-start="8" text="3.24">
+   </cell>
+   <cell col-end="4" col-start="4" row-end="8" row-start="8" text="15">
+   </cell>
+   <cell col-end="5" col-start="5" row-end="8" row-start="8" text="0.59">
+   </cell>
+   <cell col-end="6" col-start="6" row-end="8" row-start="8" text="1.66">
+   </cell>
+   <cell col-end="7" col-start="7" row-end="8" row-start="8" text="12">
+   </cell>
+   <cell col-end="8" col-start="8" row-end="8" row-start="8" text="1.28">
+   </cell>
+   <cell col-end="9" col-start="9" row-end="8" row-start="8" text="2.40">
+   </cell>
+   <cell col-end="10" col-start="10" row-end="8" row-start="8" text="11">
+   </cell>
+   <cell col-end="11" col-start="11" row-end="8" row-start="8" text="0.57">
+   </cell>
+   <cell col-end="12" col-start="12" row-end="8" row-start="8" text="1.90">
+   </cell>
+   <cell col-end="13" col-start="13" row-end="8" row-start="8" text="14">
+   </cell>
+  </row>
+  <row row="9">
+   <cell col-end="0" col-start="0" row-end="9" row-start="9" text="Taiwan">
+   </cell>
+   <cell col-end="1" col-start="1" row-end="9" row-start="9" text="107">
+   </cell>
+   <cell col-end="2" col-start="2" row-end="9" row-start="9" text="1.6">
+   </cell>
+   <cell col-end="3" col-start="3" row-end="9" row-start="9" text="2.22">
+   </cell>
+   <cell col-end="4" col-start="4" row-end="9" row-start="9" text="12">
+   </cell>
+   <cell col-end="5" col-start="5" row-end="9" row-start="9" text="0.21">
+   </cell>
+   <cell col-end="6" col-start="6" row-end="9" row-start="9" text="1.11">
+   </cell>
+   <cell col-end="7" col-start="7" row-end="9" row-start="9" text="7">
+   </cell>
+   <cell col-end="8" col-start="8" row-end="9" row-start="9" text="0.14">
+   </cell>
+   <cell col-end="9" col-start="9" row-end="9" row-start="9" text="0.46">
+   </cell>
+   <cell col-end="10" col-start="10" row-end="9" row-start="9" text="3">
+   </cell>
+   <cell col-end="11" col-start="11" row-end="9" row-start="9" text="0.00">
+   </cell>
+   <cell col-end="12" col-start="12" row-end="9" row-start="9" text="0.00">
+   </cell>
+   <cell col-end="13" col-start="13" row-end="9" row-start="9" text="0">
+   </cell>
+  </row>
+  <row row="10">
+   <cell col-end="0" col-start="0" row-end="10" row-start="10" text="Thailand">
+   </cell>
+   <cell col-end="1" col-start="1" row-end="10" row-start="10" text="127">
+   </cell>
+   <cell col-end="2" col-start="2" row-end="10" row-start="10" text="5.11">
+   </cell>
+   <cell col-end="3" col-start="3" row-end="10" row-start="10" text="5.04">
+   </cell>
+   <cell col-end="4" col-start="4" row-end="10" row-start="10" text="23">
+   </cell>
+   <cell col-end="5" col-start="5" row-end="10" row-start="10" text="1.58">
+   </cell>
+   <cell col-end="6" col-start="6" row-end="10" row-start="10" text="3.15">
+   </cell>
+   <cell col-end="7" col-start="7" row-end="10" row-start="10" text="19">
+   </cell>
+   <cell col-end="8" col-start="8" row-end="10" row-start="10" text="0.73">
+   </cell>
+   <cell col-end="9" col-start="9" row-end="10" row-start="10" text="1.99">
+   </cell>
+   <cell col-end="10" col-start="10" row-end="10" row-start="10" text="11">
+   </cell>
+   <cell col-end="11" col-start="11" row-end="10" row-start="10" text="0.29">
+   </cell>
+   <cell col-end="12" col-start="12" row-end="10" row-start="10" text="1.16">
+   </cell>
+   <cell col-end="13" col-start="13" row-end="10" row-start="10" text="8">
+   </cell>
+  </row>
+  <statements>
+   <statement id="2" text="At the same time, these networks often occur in tandem at the firm level." type="entailed">
+   </statement>
+   <statement id="3" text="For each network interaction, there is considerable variation both across and within countries." type="entailed">
+   </statement>
+   <statement id="5" text="The n value is same for Hong Kong and Malaysia." type="refuted">
+   </statement>
+   <statement id="8" text="There are 9 different types country in the given table." type="entailed">
+   </statement>
+  </statements>
+ </table>
+</document>

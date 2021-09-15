@@ -25,7 +25,9 @@ from tapas.datasets import table_dataset_test_utils
 from tapas.models import tapas_classifier_model
 from tapas.models.bert import modeling
 from tapas.protos import table_pruning_pb2
+from tapas.utils import attention_utils
 import tensorflow.compat.v1 as tf
+
 from google.protobuf import text_format
 
 
@@ -109,6 +111,14 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
         classification_label_weight=params.get("classification_label_weight",
                                                {}),
         table_pruning_config_file=params.get("table_pruning_config_file", None),
+        restrict_attention_mode=params.get(
+            "restrict_attention_mode",
+            attention_utils.RestrictAttentionMode.FULL),
+        restrict_attention_bucket_size=2,
+        restrict_attention_header_size=4,
+        cell_cross_entropy=params.get("cell_cross_entropy", False),
+        cell_cross_entropy_hard_em=params.get("cell_cross_entropy_hard_em",
+                                              False),
     )
     model_fn = tapas_classifier_model.model_fn_builder(tapas_config)
 
@@ -147,6 +157,9 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
           use_normalized_answer_loss=True),
       dict(select_one_column=True),
       dict(do_gradient_accumulation=True),
+      dict(attention=attention_utils.RestrictAttentionMode.HEADWISE_EFFICIENT),
+      dict(cell_cross_entropy=True),
+      dict(cell_cross_entropy_hard_em=True),
   )
   def test_build_model_train_and_evaluate(
       self,
@@ -156,6 +169,9 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
       use_normalized_answer_loss=False,
       select_one_column=False,
       do_gradient_accumulation=False,
+      attention=None,
+      cell_cross_entropy=False,
+      cell_cross_entropy_hard_em=False,
   ):
     """Tests that we can train, save, load and evaluate the model."""
     params = dict(
@@ -187,6 +203,8 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
         average_logits_per_cell=True,
         select_one_column=select_one_column,
         gradient_accumulation_steps=2 if do_gradient_accumulation else 1,
+        cell_cross_entropy=cell_cross_entropy,
+        cell_cross_entropy_hard_em=cell_cross_entropy_hard_em,
     )
 
     estimator = self._create_estimator(params)
@@ -205,6 +223,10 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
 
     estimator.train(_input_fn, max_steps=params["num_train_steps"])
 
+    if attention is not None:
+      # Test that a normal model can get loaded into a sparse model
+      load_checkpoint = True
+      params["restrict_attention_mode"] = attention
 
     if load_checkpoint:
       params["init_checkpoint"] = estimator.model_dir

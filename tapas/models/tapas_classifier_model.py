@@ -15,11 +15,11 @@
 # Lint as: python3
 """TAPAS BERT model for classification."""
 
+import dataclasses
 import enum
 import json
-from typing import Iterable, Text, Optional, List, Set, Mapping
+from typing import Iterable, List, Mapping, Optional, Set, Text
 
-import dataclasses
 from tapas.datasets import dataset
 from tapas.datasets import table_dataset
 from tapas.models import segmented_tensor
@@ -27,6 +27,7 @@ from tapas.models import tapas_classifier_model_utils as utils
 from tapas.models.bert import modeling
 from tapas.models.bert import optimization
 from tapas.models.bert import table_bert
+from tapas.utils import attention_utils
 from tapas.utils import span_prediction_utils
 from tapas.utils import table_pruning
 import tensorflow.compat.v1 as tf
@@ -98,6 +99,17 @@ class TapasClassifierConfig:
   want to train on negative tables but we don't want the model to learn to
   predict no answer for them.
   table_pruning_config_file: The config file of table pruning.
+  restrict_attention_mode: Restrict attention between cells depending on row or
+    column position.
+  restrict_attention_bucket_size: For sparse attention modes, further restrict
+    attention to consecutive buckets of uniform size.
+  restrict_attention_header_size: For sparse attention modes, size of the first
+    section that will attend to/from everything else. If None use bucket_size.
+  restrict_attention_row_heads_ratio: For sparse attention modes, proportion of
+    heads that should focus on rows vs columns.
+  cell_cross_entropy: Whether to use cross entropy for cell selection loss.
+  cell_cross_entropy_hard_em: When using cell cross entropy, whether to use hard
+    or soft EM for cases with more than one ground truth cell.
   """
 
   bert_config: modeling.BertConfig
@@ -138,6 +150,13 @@ class TapasClassifierConfig:
   classification_label_weight: Optional[Mapping[int, float]] = None
   mask_examples_without_labels: bool = False
   table_pruning_config_file: Optional[Text] = None
+  restrict_attention_mode: attention_utils.RestrictAttentionMode = (
+      attention_utils.RestrictAttentionMode.FULL)
+  restrict_attention_bucket_size: int = 0
+  restrict_attention_header_size: Optional[int] = None
+  restrict_attention_row_heads_ratio: float = 0.5
+  cell_cross_entropy: bool = False
+  cell_cross_entropy_hard_em: bool = False
 
   def to_json_string(self):
     """Serializes this instance to a JSON string."""
@@ -967,6 +986,11 @@ def model_fn_builder(
         features=features,
         mode=mode,
         bert_config=config.bert_config,
+        restrict_attention_mode=config.restrict_attention_mode,
+        restrict_attention_bucket_size=config.restrict_attention_bucket_size,
+        restrict_attention_header_size=config.restrict_attention_header_size,
+        restrict_attention_row_heads_ratio=(
+            config.restrict_attention_row_heads_ratio),
         token_weights=token_scores,
         disabled_features=config.disabled_features,
         disable_position_embeddings=config.disable_position_embeddings,

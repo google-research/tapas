@@ -1,0 +1,526 @@
+# proto-file: third_party/py/tapas/protos/interaction.proto
+# proto-message: Interaction
+id: "sem_tab_fact_20502_Table_2_2"
+table {
+  columns {
+  }
+  columns {
+  }
+  columns {
+  }
+  columns {
+  }
+  columns {
+  }
+  columns {
+  }
+  columns {
+  }
+  columns {
+  }
+  columns {
+  }
+  columns {
+  }
+  columns {
+  }
+  columns {
+  }
+  columns {
+  }
+  columns {
+  }
+  rows {
+    cells {
+      text: "Country"
+    }
+    cells {
+      text: "N"
+    }
+    cells {
+      text: "Board network"
+    }
+    cells {
+      text: ""
+    }
+    cells {
+      text: ""
+    }
+    cells {
+      text: "Family network"
+    }
+    cells {
+      text: ""
+    }
+    cells {
+      text: ""
+    }
+    cells {
+      text: "State network"
+    }
+    cells {
+      text: ""
+    }
+    cells {
+      text: ""
+    }
+    cells {
+      text: "Political network"
+    }
+    cells {
+      text: ""
+    }
+    cells {
+      text: ""
+    }
+  }
+  rows {
+    cells {
+      text: ""
+    }
+    cells {
+      text: ""
+    }
+    cells {
+      text: "mean"
+    }
+    cells {
+      text: "SD"
+    }
+    cells {
+      text: "max"
+    }
+    cells {
+      text: "mean"
+    }
+    cells {
+      text: "SD"
+    }
+    cells {
+      text: "max"
+    }
+    cells {
+      text: "mean"
+    }
+    cells {
+      text: "SD"
+    }
+    cells {
+      text: "max"
+    }
+    cells {
+      text: "mean"
+    }
+    cells {
+      text: "SD"
+    }
+    cells {
+      text: "max"
+    }
+  }
+  rows {
+    cells {
+      text: "Hong Kong"
+    }
+    cells {
+      text: "133"
+    }
+    cells {
+      text: "5.12"
+    }
+    cells {
+      text: "6.1"
+    }
+    cells {
+      text: "33"
+    }
+    cells {
+      text: "2.62"
+    }
+    cells {
+      text: "4.51"
+    }
+    cells {
+      text: "26"
+    }
+    cells {
+      text: "1.00"
+    }
+    cells {
+      text: "1.41"
+    }
+    cells {
+      text: "6"
+    }
+    cells {
+      text: "0.67"
+    }
+    cells {
+      text: "1.37"
+    }
+    cells {
+      text: "6"
+    }
+  }
+  rows {
+    cells {
+      text: "Indonesia"
+    }
+    cells {
+      text: "169"
+    }
+    cells {
+      text: "1.64"
+    }
+    cells {
+      text: "3.31"
+    }
+    cells {
+      text: "23"
+    }
+    cells {
+      text: "0.95"
+    }
+    cells {
+      text: "2.64"
+    }
+    cells {
+      text: "17"
+    }
+    cells {
+      text: "0.14"
+    }
+    cells {
+      text: "0.38"
+    }
+    cells {
+      text: "2"
+    }
+    cells {
+      text: "0.22"
+    }
+    cells {
+      text: "1.09"
+    }
+    cells {
+      text: "9"
+    }
+  }
+  rows {
+    cells {
+      text: "Japan"
+    }
+    cells {
+      text: "126"
+    }
+    cells {
+      text: "1.84"
+    }
+    cells {
+      text: "2.33"
+    }
+    cells {
+      text: "15"
+    }
+    cells {
+      text: "0.07"
+    }
+    cells {
+      text: "0.42"
+    }
+    cells {
+      text: "3"
+    }
+    cells {
+      text: "0.09"
+    }
+    cells {
+      text: "0.31"
+    }
+    cells {
+      text: "2"
+    }
+    cells {
+      text: "0.00"
+    }
+    cells {
+      text: "0.00"
+    }
+    cells {
+      text: "0"
+    }
+  }
+  rows {
+    cells {
+      text: "South Korea"
+    }
+    cells {
+      text: "133"
+    }
+    cells {
+      text: "2.5"
+    }
+    cells {
+      text: "2.8"
+    }
+    cells {
+      text: "21"
+    }
+    cells {
+      text: "1.09"
+    }
+    cells {
+      text: "1.37"
+    }
+    cells {
+      text: "6"
+    }
+    cells {
+      text: "0.15"
+    }
+    cells {
+      text: "0.40"
+    }
+    cells {
+      text: "2"
+    }
+    cells {
+      text: "0.02"
+    }
+    cells {
+      text: "0.15"
+    }
+    cells {
+      text: "1"
+    }
+  }
+  rows {
+    cells {
+      text: "Malaysia"
+    }
+    cells {
+      text: "281"
+    }
+    cells {
+      text: "7.35"
+    }
+    cells {
+      text: "6.61"
+    }
+    cells {
+      text: "37"
+    }
+    cells {
+      text: "1.07"
+    }
+    cells {
+      text: "1.94"
+    }
+    cells {
+      text: "8"
+    }
+    cells {
+      text: "2.15"
+    }
+    cells {
+      text: "3.09"
+    }
+    cells {
+      text: "18"
+    }
+    cells {
+      text: "0.36"
+    }
+    cells {
+      text: "0.74"
+    }
+    cells {
+      text: "5"
+    }
+  }
+  rows {
+    cells {
+      text: "Philippines"
+    }
+    cells {
+      text: "98"
+    }
+    cells {
+      text: "8.52"
+    }
+    cells {
+      text: "8.91"
+    }
+    cells {
+      text: "38"
+    }
+    cells {
+      text: "5.33"
+    }
+    cells {
+      text: "6.16"
+    }
+    cells {
+      text: "21"
+    }
+    cells {
+      text: "0.71"
+    }
+    cells {
+      text: "1.59"
+    }
+    cells {
+      text: "10"
+    }
+    cells {
+      text: "0.20"
+    }
+    cells {
+      text: "0.81"
+    }
+    cells {
+      text: "6"
+    }
+  }
+  rows {
+    cells {
+      text: "Singapore"
+    }
+    cells {
+      text: "116"
+    }
+    cells {
+      text: "3.52"
+    }
+    cells {
+      text: "3.24"
+    }
+    cells {
+      text: "15"
+    }
+    cells {
+      text: "0.59"
+    }
+    cells {
+      text: "1.66"
+    }
+    cells {
+      text: "12"
+    }
+    cells {
+      text: "1.28"
+    }
+    cells {
+      text: "2.40"
+    }
+    cells {
+      text: "11"
+    }
+    cells {
+      text: "0.57"
+    }
+    cells {
+      text: "1.90"
+    }
+    cells {
+      text: "14"
+    }
+  }
+  rows {
+    cells {
+      text: "Taiwan"
+    }
+    cells {
+      text: "107"
+    }
+    cells {
+      text: "1.6"
+    }
+    cells {
+      text: "2.22"
+    }
+    cells {
+      text: "12"
+    }
+    cells {
+      text: "0.21"
+    }
+    cells {
+      text: "1.11"
+    }
+    cells {
+      text: "7"
+    }
+    cells {
+      text: "0.14"
+    }
+    cells {
+      text: "0.46"
+    }
+    cells {
+      text: "3"
+    }
+    cells {
+      text: "0.00"
+    }
+    cells {
+      text: "0.00"
+    }
+    cells {
+      text: "0"
+    }
+  }
+  rows {
+    cells {
+      text: "Thailand"
+    }
+    cells {
+      text: "127"
+    }
+    cells {
+      text: "5.11"
+    }
+    cells {
+      text: "5.04"
+    }
+    cells {
+      text: "23"
+    }
+    cells {
+      text: "1.58"
+    }
+    cells {
+      text: "3.15"
+    }
+    cells {
+      text: "19"
+    }
+    cells {
+      text: "0.73"
+    }
+    cells {
+      text: "1.99"
+    }
+    cells {
+      text: "11"
+    }
+    cells {
+      text: "0.29"
+    }
+    cells {
+      text: "1.16"
+    }
+    cells {
+      text: "8"
+    }
+  }
+  table_id: "sem_tab_fact_20502_Table_2"
+  document_title: "Networks across East Asia."
+}
+questions {
+  id: "sem_tab_fact_20502_Table_2_2_0"
+  original_text: "At the same time, these networks often occur in tandem at the firm level."
+  answer {
+    class_index: 1
+  }
+}

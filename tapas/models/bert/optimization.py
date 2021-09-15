@@ -113,7 +113,9 @@ class GradientAccumulationOptimizer(tf.train.Optimizer):
   def __init__(self,
                opt,
                steps,
-               grad_clipping = None):
+               grad_clipping = None,
+               name="GradientAccumulationOptimizer"):
+    super(GradientAccumulationOptimizer, self).__init__(False, name)
     if steps <= 0:
       raise ValueError("GradientAccumulation expects steps to be positive.")
     self._opt = opt

@@ -5,6 +5,9 @@ in the paper [TAPAS: Weakly Supervised Table Parsing via Pre-training](#how-to-c
 
 ## News
 
+#### 2021/09/15
+* Released code for sparse table attention from [MATE: Multi-view Attention for Table Transformer Efficiency](https://arxiv.org/abs/2109.04312). For more info check [here](https://github.com/google-research/tapas/blob/master/MATE.md).
+
 #### 2021/08/24
 * Added a [colab](http://tiny.cc/tapas-retrieval-colab) to try predictions on open domain question answering.
 

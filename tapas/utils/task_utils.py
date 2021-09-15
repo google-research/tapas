@@ -16,20 +16,20 @@
 """Utilities for data conversions for different tasks / datasets."""
 
 import collections
-import json
 import os
-import typing
-from typing import Mapping, Text, Iterable, Optional
+from typing import Iterable, Mapping, Optional, Text
 
 from tapas.protos import interaction_pb2
+from tapas.utils import hybridqa_rc_utils
+from tapas.utils import hybridqa_utils
 from tapas.utils import interaction_utils_parser
 from tapas.utils import pruning_utils
+from tapas.utils import sem_tab_fact_utils
 from tapas.utils import sqa_utils
 from tapas.utils import tabfact_utils
 from tapas.utils import tasks
 from tapas.utils import wikisql_utils
 from tapas.utils import wtq_utils
-
 import tensorflow.compat.v1 as tf
 
 _Mode = interaction_utils_parser.SupervisionMode
@@ -138,11 +138,6 @@ def create_interactions(
     """Helper function that binds output dir and token_selector arguments."""
     _to_tfrecord(interactions, output_dir, token_selector)
 
-  def to_json(config, output_dir):
-    config_filename = os.path.join(output_dir, 'hybridqa_rc_config.json')
-    with tf.io.gfile.GFile(config_filename, 'w') as fp:
-      json.dump(config.asdict, fp, indent=4, sort_keys=True)
-
   if task == tasks.Task.SQA:
     tsv_dir = input_dir
   elif task == tasks.Task.WTQ:
@@ -156,6 +151,20 @@ def create_interactions(
     tsv_dir = output_dir
   elif task == tasks.Task.TABFACT:
     to_tfrecord(tabfact_utils.convert(input_dir))
+    return
+  elif task == tasks.Task.HYBRIDQA:
+    to_tfrecord(hybridqa_utils.convert(input_dir))
+    return
+  elif task == tasks.Task.HYBRIDQA_RC:
+    to_tfrecord(hybridqa_rc_utils.convert(input_dir, output_dir))
+    return
+  elif task == tasks.Task.HYBRIDQA_E2E:
+    to_tfrecord(
+        hybridqa_rc_utils.create_interactions_from_hybridqa_predictions(
+            output_dir))
+    return
+  elif task == tasks.Task.SEM_TAB_FACT:
+    to_tfrecord(sem_tab_fact_utils.convert(input_dir))
     return
   else:
     raise ValueError(f'Unknown task: {task.name}')

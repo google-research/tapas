@@ -20,17 +20,18 @@
 
 import ast
 import collections
+import dataclasses
 import os
 import re
 import string
 from typing import Any, Iterable, List, Mapping, Optional, Set, Text, Tuple
 
 from absl import logging
-import dataclasses
 import numpy as np
 from tapas.experiments import prediction_utils as xprediction_utils
 from tapas.protos import interaction_pb2
 from tapas.scripts import prediction_utils
+from tapas.utils import hybridqa_utils
 from tapas.utils import text_utils
 
 from official.nlp.bert import tokenization
@@ -602,6 +603,8 @@ def evaluate_retrieval_e2e(
   """Computes e2e retrieval-QA metrics."""
   vocab_file = vocab_file or _guess_vocab_file(interaction_file)
   references = None
+  if references_file is not None:
+    references = hybridqa_utils.get_hybridqa_references(references_file)
   logging.info("Vocab file: %s ", vocab_file)
   logging.info("Read: %s ", interaction_file)
   interactions = prediction_utils.iterate_interactions(interaction_file)
@@ -611,3 +614,55 @@ def evaluate_retrieval_e2e(
                                  references)
 
 
+# TODO(eisenjulian): merge this with _evaluate_retrieval_e2e() or pull the
+# common logic in a separate function and call that in _evaluate_retrieval_e2e.
+def generate_hybridqa_codalab_predictions(
+    interaction_file,
+    prediction_file):
+  """Generates Codaab prediction files for HybridQA Competition.
+
+  This function generates the json prediction files used to submit to HybridQA
+  competition hosted on Codalab. (go/hybridqa-competition)
+
+  Args:
+    interaction_file: A TF record file containing the examples as interactions.
+    prediction_file: A TSV file that is the output of the table-classifier
+      predict job on the input interactions.
+
+  Yields:
+    An iterable of json serializable python dicts.
+  """
+  vocab_file = _guess_vocab_file(interaction_file)
+  logging.info("Vocab file: %s ", vocab_file)
+  logging.info("Read: %s ", interaction_file)
+  interactions = prediction_utils.iterate_interactions(interaction_file)
+  logging.info("Read: %s ", prediction_file)
+  predictions = prediction_utils.iterate_predictions(prediction_file)
+
+  detokenizer = DeTokenizer(vocab_file)
+
+  interactions_by_qid = collections.defaultdict(list)
+  for interaction in interactions:
+    qid = interaction.questions[0].id
+    interactions_by_qid[_get_example_id(qid)].append(interaction)
+
+  predictions_by_qid = {}
+  for prediction in predictions:
+    qid = prediction["question_id"]
+    # TODO(eisenjulian): Select the best answer using model scores.
+    predictions_by_qid[qid] = prediction
+
+  for qid, candidates in interactions_by_qid.items():
+    answer_text = ""
+    results = list(
+        _get_scored_candidates(
+            detokenizer,
+            candidates,
+            predictions_by_qid,
+        ))
+    example_id = text_utils.get_example_id(qid)
+    if results:
+      best_result = max(results, key=lambda result: result.score)
+      answer_text = best_result.answer
+
+    yield {"question_id": example_id, "pred": answer_text}

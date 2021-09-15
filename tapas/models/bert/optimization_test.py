@@ -17,7 +17,6 @@
 from tapas.models.bert import optimization
 import tensorflow.compat.v1 as tf
 
-
 tf.disable_v2_behavior()
 
 
@@ -43,6 +42,14 @@ class OptimizationTest(tf.test.TestCase):
         sess.run(train_op)
       w_np = sess.run(w)
       self.assertAllClose(w_np.flat, [0.4, 0.2, -0.5], rtol=1e-2, atol=1e-2)
+
+  def test_gradient_accumulation_empty_variables(self):
+    optimizer = optimization.GradientAccumulationOptimizer(
+        tf.train.RMSPropOptimizer(
+            learning_rate=.2, decay=.9, momentum=.9, epsilon=1.0),
+        steps=2,
+    )
+    self.assertEmpty(optimizer.variables())
 
   def test_gradient_accumulation(self):
     with self.test_session() as sess:

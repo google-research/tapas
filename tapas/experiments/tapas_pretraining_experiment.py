@@ -22,6 +22,7 @@ import time
 from absl import app
 from absl import flags
 from tapas.models import tapas_pretraining_model
+from tapas.utils import attention_utils
 from tapas.utils import experiment_utils  # pylint: disable=unused-import
 import tensorflow.compat.v1 as tf
 
@@ -95,10 +96,18 @@ def main(_):
       num_train_steps=experiment_utils.num_train_steps(),
       num_warmup_steps=experiment_utils.num_warmup_steps(),
       use_tpu=FLAGS.use_tpu,
+      restrict_attention_mode=attention_utils.RestrictAttentionMode(
+          FLAGS.restrict_attention_mode),
+      restrict_attention_bucket_size=FLAGS.restrict_attention_bucket_size,
+      restrict_attention_header_size=FLAGS.restrict_attention_header_size,
+      restrict_attention_row_heads_ratio=(
+          FLAGS.restrict_attention_row_heads_ratio),
       disabled_features=FLAGS.disabled_features,
       disable_position_embeddings=FLAGS.disable_position_embeddings,
       reset_position_index_per_cell=FLAGS.reset_position_index_per_cell,
-      proj_value_length=FLAGS.proj_value_length if FLAGS.proj_value_length > 0 else None,)
+      proj_value_length=FLAGS.proj_value_length
+      if FLAGS.proj_value_length > 0 else None,
+  )
   estimator = experiment_utils.build_estimator(model_fn)
 
   if FLAGS.do_train:

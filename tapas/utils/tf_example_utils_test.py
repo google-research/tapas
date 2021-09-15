@@ -20,6 +20,7 @@ import tempfile
 
 from absl import logging
 from absl.testing import absltest
+from tapas.protos import annotated_text_pb2
 from tapas.protos import interaction_pb2
 from tapas.protos import table_selection_pb2
 from tapas.utils import number_annotation_utils
@@ -393,6 +394,79 @@ class TfExampleUtilsTest(absltest.TestCase):
       self.assertEqual(
           _get_int_feature(example, 'label_ids'),
           [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0])
+
+  def test_add_entity_descriptions_to_table(self):
+    annotated_cell_ext = annotated_text_pb2.AnnotatedText.annotated_cell_ext
+    table = interaction_pb2.Table(
+        columns=[
+            interaction_pb2.Cell(text='A'),
+            interaction_pb2.Cell(text='B'),
+            interaction_pb2.Cell(text='C'),
+        ],
+        rows=[
+            interaction_pb2.Cells(cells=[
+                interaction_pb2.Cell(text='0 6'),
+                interaction_pb2.Cell(text='4 7'),
+                interaction_pb2.Cell(text='5 6'),
+            ]),
+            interaction_pb2.Cells(cells=[
+                interaction_pb2.Cell(text='1 7'),
+                interaction_pb2.Cell(text='3 6'),
+                interaction_pb2.Cell(text='5 5'),
+            ]),
+        ],
+    )
+    # Add some annotations to the table
+    entities = ['0', '3']
+    for row in table.rows:
+      for cell in row.cells:
+        for entity in entities:
+          if entity in cell.text:
+            cell.Extensions[annotated_cell_ext].annotations.add(
+                identifier=f'/wiki/{entity}',)
+
+    question = interaction_pb2.Question(
+        id='id', text='What prime number has religious meaning?')
+    descriptions = {
+        '/wiki/0': ('0 (zero) is a number, and the digit used to represent ' +
+                    'that number in numerals. It fulfills a central role in ' +
+                    'mathematics as the additive identity of the integers.'),
+        '/wiki/3':
+            ('3 (three) is a number, numeral, and glyph. It is the natural ' +
+             'number following 2 and preceding 4, and is the smallest odd ' +
+             'prime number. It has religious or cultural significance.')
+    }
+    expected_table = interaction_pb2.Table()
+    expected_table.CopyFrom(table)
+    # Only the top two sentences are used, based on tf-idf score
+    expected_table.rows[1].cells[1].text = (
+        '3 6 ( It is the natural number following 2 and preceding 4, and is ' +
+        'the smallest odd prime number. It has religious or cultural ' +
+        'significance. )')
+
+    table_without_titles = interaction_pb2.Table()
+    table_without_titles.CopyFrom(table)
+    tf_example_utils._add_entity_descriptions_to_table(
+        question,
+        descriptions,
+        table_without_titles,
+        num_results=2,
+        use_entity_title=False)
+    self.assertEqual(table_without_titles, expected_table)
+
+    table_with_titles = interaction_pb2.Table()
+    table_with_titles.CopyFrom(table)
+    expected_table.rows[1].cells[1].text = (
+        '3 6 ( 3 : It is the natural number following 2 and preceding 4, and ' +
+        'is the smallest odd prime number. It has religious or cultural ' +
+        'significance. )')
+    tf_example_utils._add_entity_descriptions_to_table(
+        question,
+        descriptions,
+        table_with_titles,
+        num_results=2,
+        use_entity_title=True)
+    self.assertEqual(table_with_titles, expected_table)
 
 if __name__ == '__main__':
   absltest.main()
