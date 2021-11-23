@@ -103,7 +103,7 @@ class ConversionConfig:
 
 @dataclasses.dataclass(frozen=True)
 class PretrainConversionConfig(ConversionConfig):
-  """Configures options speciic to pretraining data creation.
+  """Configures options specific to pretraining data creation.
 
   max_predictions_per_seq: Max predictions per sequence for mask task.
   min_question_length: Min question length.
@@ -149,7 +149,7 @@ class ClassifierConversionConfig(TrimmedConversionConfig):
   use_context_title: bool = False
   # For TPU prediction we serialize strings into a fix length.
   trim_question_ids: bool = False
-  # For each data split how to up/down sample the dataset
+  # For each data split how to up/down sample the dataset.
   label_sampling_rate: Mapping[Tuple[Text, int],
                                float] = dataclasses.field(default_factory=dict)
 
@@ -389,12 +389,12 @@ def _add_entity_descriptions_to_table(
     for sentence in sentences:
       documents.append(sentence)
 
-  search_results = text_index.TextIndex(documents).search(
+  search_results = text_index.TextIndex(documents, lambda x: x).search(
       question.text, num_results=num_results)
   logging.log_first_n(logging.INFO,
                       '%s selected entity annotations for %s:  %s', 100,
                       question.id, question.text, search_results)
-  search_results_set = {r.text for r in search_results}
+  search_results_set = {r.document for r in search_results}
 
   buckets = [1, 2, 3, 4, 5, 10, 25, 50, 100]
   sentences_kept = len(search_results_set)
@@ -763,10 +763,17 @@ class ToTensorflowExampleBase:
     features['numeric_values_scale'] = create_float_feature(
         numeric_values_scale)
 
-  def _pad_to_seq_length(self, inputs):
-    while len(inputs) > self._max_seq_length:
+  def _pad_to_seq_length(self,
+                         inputs,
+                         override_max_seq_length = None):
+    """Limits the input to max_seq_len."""
+    if override_max_seq_length is not None:
+      max_seq_length = override_max_seq_length
+    else:
+      max_seq_length = self._max_seq_length
+    while len(inputs) > max_seq_length:
       inputs.pop()
-    while len(inputs) < self._max_seq_length:
+    while len(inputs) < max_seq_length:
       inputs.append(0)
 
   def _to_token_ids(self, tokens):
@@ -1223,6 +1230,7 @@ class ToClassifierTensorflowExample(ToTrimmedTensorflowExample):
     self._use_entity_title = config.use_entity_title
     self._entity_descriptions_sentence_limit = config.entity_descriptions_sentence_limit
 
+
   def _tokenize_extended_question(
       self,
       question,
@@ -1387,6 +1395,7 @@ class ToClassifierTensorflowExample(ToTrimmedTensorflowExample):
                                        'Candidates: Dropped candidates').inc()
 
     return tf.train.Example(features=tf.train.Features(feature=features))
+
 
   def get_empty_example(self):
     interaction = interaction_pb2.Interaction(questions=[

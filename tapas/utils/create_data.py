@@ -44,7 +44,6 @@ _NegativeRetrievalExamples = negative_retrieval_examples_pb2.NegativeRetrievalEx
 _annotated_cell = annotated_text_pb2.AnnotatedText.annotated_cell_ext
 _annotated_question = annotated_text_pb2.AnnotatedText.annotated_question_ext
 
-
 _read_inputs = pretrain_utils.read_inputs
 read_interactions = pretrain_utils.read_interactions
 
@@ -127,8 +126,7 @@ def _merge_random_interactions(
     yield first_key, (first_interaction, None)
 
 
-def insert_fake_table_fn(
-    key_interaction):
+def insert_fake_table_fn(key_interaction):
   """Replaces all tables with a fake table."""
   key, interaction = key_interaction
 

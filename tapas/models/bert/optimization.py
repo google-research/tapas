@@ -133,6 +133,7 @@ class GradientAccumulationOptimizer(tf.train.Optimizer):
     counter = tf.get_variable(
         shape=[], initializer=tf.zeros_initializer, name="counter")
     accums = []
+    update_op = []
     variables = []
     for (grad, param) in grads_and_vars:
       if grad is None or param is None:
@@ -151,18 +152,21 @@ class GradientAccumulationOptimizer(tf.train.Optimizer):
           dtype=tf.float32,
           trainable=False,
           initializer=tf.zeros_initializer())
+      accums.append(accum)
+
       if isinstance(grad, tf.IndexedSlices):
         scaled_grad = tf.IndexedSlices(
             grad.values / self._steps,
             grad.indices,
             dense_shape=grad.dense_shape)
-        accums.append(accum.assign_add(scaled_grad))
+        update_op.append(accum.assign_add(scaled_grad))
       else:
-        accums.append(accum.assign_add(grad / self._steps))
+        update_op.append(accum.assign_add(grad / self._steps))
 
     def _apply_and_zero():
-      apply_op = self._opt.apply_gradients(
-          list(zip(accums, variables)), global_step, name)
+      with tf.control_dependencies(update_op):
+        apply_op = self._opt.apply_gradients(
+            list(zip(accums, variables)), global_step, name)
       with tf.control_dependencies([apply_op]):
         zero_op = [
             tf.assign(accum, tf.zeros_like(accum))
@@ -171,7 +175,7 @@ class GradientAccumulationOptimizer(tf.train.Optimizer):
       return tf.group(zero_op)
 
     def _accum():
-      return tf.group(accums)
+      return tf.group(update_op)
 
     # Control that the counter has been incremented already
     with tf.control_dependencies([counter.assign_add(1)]):

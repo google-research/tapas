@@ -20,6 +20,7 @@ from tapas.utils import attention_utils
 
 import tensorflow.compat.v1 as tf
 
+
 _AttentionMode = attention_utils.RestrictAttentionMode
 
 
@@ -46,11 +47,12 @@ def create_model(
       "inv_column_ranks", "numeric_relations"
   ]
   token_type_ids = []
-  for key in token_type_features:
+  disabled_ids = []
+  for i, key in enumerate(token_type_features):
     if disabled_features is not None and key in disabled_features:
-      token_type_ids.append(tf.zeros_like(features[key]))
-    else:
-      token_type_ids.append(features[key])
+      tf.logging.info("Disable " + key)
+      disabled_ids.append(i)
+    token_type_ids.append(features[key])
 
   attention_mask = None
   custom_attention_layer = None
@@ -89,6 +91,7 @@ def create_model(
       custom_attention_layer=custom_attention_layer,
       token_weights=token_weights,
       token_type_ids=token_type_ids,
+      disabled_ids=disabled_ids,
       use_position_embeddings=not disable_position_embeddings,
       reset_position_index_per_cell=reset_position_index_per_cell,
       proj_value_length=proj_value_length,

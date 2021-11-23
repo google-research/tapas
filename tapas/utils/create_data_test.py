@@ -40,7 +40,6 @@ _InputFormat = create_data.InputFormat
 _PretrainConfig = tf_example_utils.PretrainConversionConfig
 _ClassifierConfig = tf_example_utils.ClassifierConversionConfig
 
-
 _RESERVED_SYMBOLS = ('[PAD]', '[UNK]', '[CLS]', '[SEP]', '[MASK]', '[EMPTY]')
 
 
@@ -563,8 +562,12 @@ class CreateRetrievalDataTest(parameterized.TestCase):
     super(CreateRetrievalDataTest, self).tearDown()
     self._temp_dir.cleanup()
 
-  def _create_vocab(self, vocab):
-    with tf.gfile.Open(self._vocab_path, 'w') as input_handle:
+  def _create_vocab(
+      self,
+      vocab,
+  ):
+    vocab_path = self._vocab_path
+    with tf.gfile.Open(vocab_path, 'w') as input_handle:
       input_handle.write('\n'.join(vocab))
 
   @parameterized.parameters(
@@ -614,15 +617,15 @@ class CreateRetrievalDataTest(parameterized.TestCase):
           'Conversion success': 1,
       })
     else:
-      self.assertEqual(counters, {
-          'Input question': 1,
-          'Conversion success': 1,
-          'Fake Questions added for table only example': 1,
-      })
+      self.assertEqual(
+          counters, {
+              'Input question': 1,
+              'Conversion success': 1,
+              'Fake Questions added for table only example': 1,
+          })
 
     output = _read_examples(self._output_path)
     self.assertLen(output, 1)
-
 
 if __name__ == '__main__':
   absltest.main()

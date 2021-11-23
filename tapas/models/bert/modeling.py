@@ -146,6 +146,7 @@ class BertModel(object):
                custom_attention_layer=None,
                custom_transformer_layer=None,
                token_type_ids=None,
+               disabled_ids=None,
                extra_embeddings=None,
                use_position_embeddings=True,
                reset_position_index_per_cell=False,
@@ -169,6 +170,7 @@ class BertModel(object):
         `transformer_model` in order to replace for sparse alternatives.
       token_type_ids: (optional) nested structure of int32 Tensors of shape
         [batch_size, seq_length].
+      disabled_ids: (optional): list. A list of disabled ids.
       extra_embeddings: (optional) float32 Tensor of shape [batch_size, seq_len,
         embedding_dim]. Additional embeddings concatenated with all the other
         embeddings.
@@ -217,6 +219,7 @@ class BertModel(object):
             input_tensor=self.embedding_output,
             use_token_type=True,
             token_type_ids=token_type_ids,
+            disabled_ids=disabled_ids,
             token_type_vocab_size=config.type_vocab_size,
             token_type_embedding_name="token_type_embeddings",
             use_position_embeddings=use_position_embeddings,
@@ -512,6 +515,7 @@ def _get_relative_position_embeddings(
 def embedding_postprocessor(input_tensor,
                             use_token_type=False,
                             token_type_ids=None,
+                            disabled_ids=None,
                             token_type_vocab_size=None,
                             token_type_embedding_name="token_type_embeddings",
                             use_position_embeddings=True,
@@ -529,6 +533,7 @@ def embedding_postprocessor(input_tensor,
     use_token_type: bool. Whether to add embeddings for `token_type_ids`.
     token_type_ids: (optional) nested structure of int32 Tensors of shape
       [batch_size, seq_length]. Must be specified if `use_token_type` is True.
+    disabled_ids: (optional): list. A list of disabled ids.
     token_type_vocab_size: nested structure of ints. The vocabulary size of
       `token_type_ids`. Must match the structure of `token_type_ids`.
     token_type_embedding_name: string. The name of the embedding table variable
@@ -572,6 +577,8 @@ def embedding_postprocessor(input_tensor,
 
     for i, (type_ids, type_vocab_size) in enumerate(
         zip(token_type_ids, token_type_vocab_size)):
+      if disabled_ids is not None and i in disabled_ids:
+        continue
       token_type_table = tf.get_variable(
           name="%s_%d" % (token_type_embedding_name, i),
           shape=[type_vocab_size, width],

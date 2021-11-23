@@ -26,22 +26,22 @@ class TextIndexTest(absltest.TestCase):
         'A sentence about dogs.',
         'Dogs are cute amimals',
         'Cats are OK as well',
-    ])
+    ], lambda x: x)
     results = index.search('Two dogs.', num_results=1, retrieval_threshold=0.0)
     self.assertLen(results, 1)
-    self.assertEqual(results[0].text, 'A sentence about dogs.')
+    self.assertEqual(results[0].document, 'A sentence about dogs.')
 
   def test_bad_results_filtered(self):
     index = text_index.TextIndex([
         'A sentence about dogs and cats.',
         'Dogs are cute amimals. I like dogs.',
         'Cats are OK as well',
-    ])
+    ], lambda x: x)
     results = index.search('Two dogs.', num_results=3, retrieval_threshold=0.0)
     self.assertLen(results, 2)
     first, second = results
-    self.assertEqual(first.text, 'Dogs are cute amimals. I like dogs.')
-    self.assertEqual(second.text, 'A sentence about dogs and cats.')
+    self.assertEqual(first.document, 'Dogs are cute amimals. I like dogs.')
+    self.assertEqual(second.document, 'A sentence about dogs and cats.')
     self.assertGreater(first.score, second.score)
 
 

@@ -80,6 +80,7 @@ flags.DEFINE_bool("disable_position_embeddings", False,
 flags.DEFINE_bool("reset_position_index_per_cell", False,
                   "Whether to restart position indexes at every cell.")
 
+
 flags.DEFINE_integer(
     "proj_value_length",
     -1,

@@ -285,6 +285,9 @@ flags.DEFINE_integer(
 
 
 
+def _get_projection_length(proj_length):
+  return proj_length if proj_length and proj_length > 0 else None
+
 
 def _predict_and_export_metrics(
     mode,
