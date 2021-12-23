@@ -13,12 +13,12 @@ language modeling and before fine-tuning, hence the name intermediate pre-traini
 
 ## Synthetic Examples
 
-We generate syntethic examples using a simple grammar.
+We generate synthetic examples using a simple grammar.
 The grammar randomly generates two SQL-like phrases that can use aggregations or constants and compares one against each other using equality or numeric comparisons.
 We assign a binary label according to the truth value of the generated statement, and the algorithm is adjusted to get the same number of positives and negatives.
 The total amount of examples obtained is 3.7 million.
 
-Below are some examples, and we recommend looking at te section 3.2 in the [paper](https://www.aclweb.org/anthology/2020.findings-emnlp.27/) to see the full details.
+Below are some examples, and we recommend looking at the section 3.2 in the [paper](https://www.aclweb.org/anthology/2020.findings-emnlp.27/) to see the full details.
 
 1. **2** is less than **wins when Player is Lee Janzen**.
 The right hand side corresponds to the query
@@ -54,7 +54,32 @@ The models trained on these datasets jointly are released with and without the f
 
 ## Code Release
 
-Data generation code is coming soon.
+Data generation code can be run with:
+
+```bash
+python3 setup.py sdist
+python3 tapas/create_intermediate_pretrain_examples_main.py \
+  --input_file="gs://tapas_models/2021_07_22/interactions.txtpb.gz" \
+  --vocab_file="gs://tapas_models/2021_07_22/vocab.txt" \
+  --output_dir="gs://your_bucket/output" \
+  --runner_type="DATAFLOW" \
+  --gc_project="you-project" \
+  --gc_region="us-west1" \
+  --gc_job_name="create-intermediate" \
+  --gc_staging_location="gs://your_bucket/staging" \
+  --gc_temp_location="gs://your_bucket/tmp" \
+  --extra_packages=dist/tapas-0.0.1.dev0.tar.gz
+```
+
+You can also run the pipeline locally but that will take a long time:
+
+```bash
+python3 tapas/create_intermediate_pretrain_examples_main.py \
+  --input_file="$data/interactions.txtpb.gz" \
+  --output_dir="$data/" \
+  --vocab_file="$data/vocab.txt" \
+  --runner_type="DIRECT"
+```
 
 ## Licence
 

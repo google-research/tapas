@@ -41,9 +41,23 @@ def parse_table_examples(
     max_num_candidates,
     params,
 ):
-  """Returns a parse_fn that parses tf.Example in table format."""
+  """Returns a parse_fn that parses tf.Example in table format.
 
-  if task_type == TableTask.RETRIEVAL_NEGATIVES:
+  Args:
+    max_seq_length: int: The length of the model's input maximum sequence.
+    max_predictions_per_seq: Shoud be set when using TableTask.PRETRAINING.
+    task_type: TableTask
+    add_aggregation_function_id: bool: True if the model learns a loss to
+      predict an aggregation function.
+    add_classification_labels: bool: True if the model does classification.
+    add_answer: bool: True to add features for the weakly supervised setting.
+    include_id: bool: False if TPU is used.
+    add_candidate_answers: bool,
+    max_num_candidates: int: Should be set when add_candidate_answers is true.
+    params: The parameters to pass to the dataset parser function
+  """
+
+  if task_type is TableTask.RETRIEVAL_NEGATIVES:
     # For this task every table feature encodes 2 tables.
     max_seq_length = 2 * max_seq_length
 
@@ -79,7 +93,11 @@ def parse_table_examples(
                              tf.int64,
                              default_value=[0] * max_seq_length),
   }
-  if task_type == TableTask.PRETRAINING:
+  if task_type is TableTask.PRETRAINING:
+    if max_predictions_per_seq is None:
+      raise ValueError(
+          "Please set max_predictions_per_seq when using TableTask.PRETRAINING."
+      )
     feature_types.update({
         "masked_lm_positions":
             tf.FixedLenFeature([max_predictions_per_seq], tf.int64),
@@ -90,16 +108,19 @@ def parse_table_examples(
         "next_sentence_labels":
             tf.FixedLenFeature([1], tf.int64),
     })
-  elif task_type == TableTask.CLASSIFICATION:
+  elif task_type in (
+      TableTask.CLASSIFICATION,
+  ):
     # For classification we have a label for each token.
-    feature_types.update({
-        "label_ids":
-            tf.FixedLenFeature(
-                [max_seq_length],
-                tf.int64,
-                default_value=[0] * max_seq_length,
-            ),
-    })
+    if task_type is TableTask.CLASSIFICATION:
+      feature_types.update({
+          "label_ids":
+              tf.FixedLenFeature(
+                  [max_seq_length],
+                  tf.int64,
+                  default_value=[0] * max_seq_length,
+              ),
+      })
     # TODO Remove default_value once the data has been updated.
     feature_types.update({
         "question_id_ints":
@@ -141,7 +162,7 @@ def parse_table_examples(
       })
   elif task_type in [TableTask.RETRIEVAL, TableTask.RETRIEVAL_NEGATIVES]:
     tables_per_examples = 1
-    if task_type == TableTask.RETRIEVAL_NEGATIVES:
+    if task_type is TableTask.RETRIEVAL_NEGATIVES:
       tables_per_examples = 2
     max_seq_length = max_seq_length // tables_per_examples
     feature_types.update({

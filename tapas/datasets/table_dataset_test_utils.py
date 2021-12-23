@@ -56,7 +56,7 @@ def create_random_example(
     max_num_candidates,
 ):
   """Returns a random table example."""
-  if task_type == table_dataset.TableTask.RETRIEVAL_NEGATIVES:
+  if task_type is table_dataset.TableTask.RETRIEVAL_NEGATIVES:
     # For this task every table feature encodes 2 tables.
     max_seq_length = 2 * max_seq_length
   values = dict(
@@ -76,7 +76,7 @@ def create_random_example(
           num_columns, size=[max_seq_length], dtype=np.int32),
       numeric_relations=np.random.randint(
           10, size=[max_seq_length], dtype=np.int32))
-  if task_type == table_dataset.TableTask.PRETRAINING:
+  if task_type is table_dataset.TableTask.PRETRAINING:
     values["masked_lm_positions"] = np.random.randint(
         2, size=[max_predictions_per_seq], dtype=np.int32)
     values["masked_lm_ids"] = np.random.randint(
@@ -85,9 +85,12 @@ def create_random_example(
         max_predictions_per_seq).astype("f")
     values["next_sentence_labels"] = np.random.randint(
         2, size=[1], dtype=np.int32)
-  elif task_type == table_dataset.TableTask.CLASSIFICATION:
-    values["label_ids"] = np.random.randint(
-        2, size=[max_seq_length], dtype=np.int32)
+  elif task_type in (
+      table_dataset.TableTask.CLASSIFICATION,
+  ):
+    if task_type is table_dataset.TableTask.CLASSIFICATION:
+      values["label_ids"] = np.random.randint(
+          2, size=[max_seq_length], dtype=np.int32)
     if add_aggregation_function_id:
       values["aggregation_function_id"] = np.random.randint(
           4, size=[1], dtype=np.int32)
@@ -106,12 +109,12 @@ def create_random_example(
           np.random.rand(max_seq_length) < 0.5, np.nan,
           np.random.uniform(-100, 100, size=[max_seq_length]))
       values["numeric_values"] = numeric_values.astype(np.float32)
-  elif task_type in [
+  elif task_type in (
       table_dataset.TableTask.RETRIEVAL,
       table_dataset.TableTask.RETRIEVAL_NEGATIVES,
-  ]:
+  ):
     tables_per_examples = 1
-    if task_type == table_dataset.TableTask.RETRIEVAL_NEGATIVES:
+    if task_type is table_dataset.TableTask.RETRIEVAL_NEGATIVES:
       tables_per_examples = 2
     max_seq_length = max_seq_length // tables_per_examples
     values["question_input_ids"] = np.random.randint(

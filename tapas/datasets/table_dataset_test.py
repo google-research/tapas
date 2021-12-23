@@ -22,7 +22,6 @@ from tapas.datasets import table_dataset
 from tapas.datasets import table_dataset_test_utils
 import tensorflow.compat.v1 as tf
 
-
 tf.disable_v2_behavior()
 
 
@@ -88,7 +87,8 @@ class TableDatasetTest(parameterized.TestCase, tf.test.TestCase):
         include_id=include_id,
         add_candidate_answers=add_candidate_answers,
         max_num_candidates=max_num_candidates,
-        params=params)
+        params=params,
+    )
     features = parse_fn(example.SerializeToString())
 
     with self.cached_session() as sess:
