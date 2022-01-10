@@ -57,9 +57,14 @@ def _to_tfrecord(
 
 
 def get_train_filename(task):
+  """Gets the name of the file with training data."""
   if task in [
-      tasks.Task.WIKISQL, tasks.Task.WIKISQL_SUPERVISED, tasks.Task.TABFACT,
-      tasks.Task.NQ_RETRIEVAL
+      tasks.Task.WIKISQL,
+      tasks.Task.WIKISQL_SUPERVISED,
+      tasks.Task.TABFACT,
+      tasks.Task.NQ_RETRIEVAL,
+      tasks.Task.HYBRIDQA,
+      tasks.Task.HYBRIDQA_RC,
   ]:
     return 'train'
   if task in [tasks.Task.SQA, tasks.Task.WTQ]:
@@ -68,9 +73,14 @@ def get_train_filename(task):
 
 
 def get_dev_filename(task):
+  """Gets the name of the file with development data."""
   if task in [
-      tasks.Task.WIKISQL, tasks.Task.WIKISQL_SUPERVISED, tasks.Task.TABFACT,
-      tasks.Task.NQ_RETRIEVAL
+      tasks.Task.WIKISQL,
+      tasks.Task.WIKISQL_SUPERVISED,
+      tasks.Task.TABFACT,
+      tasks.Task.NQ_RETRIEVAL,
+      tasks.Task.HYBRIDQA,
+      tasks.Task.HYBRIDQA_RC,
   ]:
     return 'dev'
   if task in [tasks.Task.SQA, tasks.Task.WTQ]:
@@ -79,9 +89,16 @@ def get_dev_filename(task):
 
 
 def get_test_filename(task):
+  """Gets the name of the file with test data."""
   if task in [
-      tasks.Task.WIKISQL, tasks.Task.WIKISQL_SUPERVISED, tasks.Task.SQA,
-      tasks.Task.WTQ, tasks.Task.TABFACT, tasks.Task.NQ_RETRIEVAL
+      tasks.Task.WIKISQL,
+      tasks.Task.WIKISQL_SUPERVISED,
+      tasks.Task.SQA,
+      tasks.Task.WTQ,
+      tasks.Task.TABFACT,
+      tasks.Task.NQ_RETRIEVAL,
+      tasks.Task.HYBRIDQA,
+      tasks.Task.HYBRIDQA_RC,
   ]:
     return 'test'
   raise ValueError(f'Unknown task: {task.name}')
@@ -110,6 +127,8 @@ def get_supervision_modes(task):
       tasks.Task.SQA,
       tasks.Task.WIKISQL_SUPERVISED,
       tasks.Task.TABFACT,
+      tasks.Task.HYBRIDQA,
+      tasks.Task.HYBRIDQA_RC,
   ]:
     return collections.defaultdict(lambda: _Mode.NONE)
   raise ValueError(f'Unknown task: {task.name}')

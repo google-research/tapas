@@ -20,8 +20,8 @@ following configuration flags in `tapas_classifier_experiment.py`:
  * `--restrict_attention_mode=same_colum_or_row` Attention from tokens in
  different columns and rows is masked out.
  * `--restrict_attention_mode=headwise_same_colum_or_row` Row heads mask
- attention between different rows, and columns heads betweeen columns.
- The `bucket_size` and `header_size` arguments define below can be optionaly
+ attention between different rows, and columns heads between columns.
+ The `bucket_size` and `header_size` arguments define below can be optionally
  applied to mimic the efficient implementation.
  * `--restrict_attention_mode=headwise_efficient` Similar to
  `headwise_same_colum_or_row` but uses an log linear implementation by sorting
