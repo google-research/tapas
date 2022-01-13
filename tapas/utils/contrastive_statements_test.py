@@ -30,6 +30,7 @@ FLAGS = flags.FLAGS
 
 ContrastiveCandidate = contrastive_statements.ContrastiveCandidate
 RewriteResult = contrastive_statements.RewriteResult
+_AnnotatedText = annotated_text_pb2.AnnotatedText
 
 
 def create_interaction(
@@ -49,8 +50,7 @@ def create_interaction(
       cell_text = cell.text.lower()
       if cell_text not in mentions:
         continue
-      annotated_text = cell.Extensions[\
-          annotated_text_pb2.AnnotatedText.annotated_cell_ext]
+      annotated_text = cell.Extensions[_AnnotatedText.annotated_cell_ext]
       annotation = annotated_text.annotations.add()
       annotation.begin_byte_index = 0
       annotation.end_byte_index = len(cell_text)
@@ -58,8 +58,7 @@ def create_interaction(
 
   question = interaction.questions.add()
   question.original_text = statement
-  q_annotated_text = question.Extensions[\
-    annotated_text_pb2.AnnotatedText.annotated_question_ext]
+  q_annotated_text = question.Extensions[_AnnotatedText.annotated_question_ext]
   question_text = question.original_text.lower()
   for phrase, identifier in mentions.items():
     for match in re.finditer(phrase, question_text):

@@ -35,6 +35,14 @@ def get_wikisql_hparams():
   return get_hparams(tasks.Task.WIKISQL)
 
 
+def get_hybridqa_hparams():
+  return get_hparams(tasks.Task.HYBRIDQA)
+
+
+def get_hybridqa_rc_hparams():
+  return get_hparams(tasks.Task.HYBRIDQA_RC)
+
+
 def get_tabfact_hparams():
   return get_hparams(tasks.Task.TABFACT)
 
@@ -129,6 +137,41 @@ def get_hparams(task):
         'bert_config_hidden_dropout_prob': 0.2,
         'learning_rate': 1e-06,
         'warmup_ratio': 0.0,
+        'span_prediction': 'span',
+    })
+  elif task == tasks.Task.HYBRIDQA:
+    params.update({
+        'num_train_examples': 80000 * 128,
+        'train_batch_size': 128,
+        'eval_batch_size': 8,
+        'predict_batch_size': 8,
+        'num_aggregation_labels': 0,
+        'grad_clipping': 10.0,
+        'learning_rate': 1e-5,
+        'allow_empty_column_selection': False,
+        'warmup_ratio': 0.05,
+        'max_seq_length': 2048,
+        'restrict_attention_bucket_size': 42,
+        'restrict_attention_header_size': 116,
+        'compute_denotation_accuracy': False,
+        'output_token_probabilities': True,
+        'compute_cell_selection_metrics': True,
+        'cell_cross_entropy': True,
+    })
+  elif task == tasks.Task.HYBRIDQA_RC:
+    params.update({
+        'disable_per_token_loss': False,
+        'grad_clipping': 10.0,
+        'num_classification_labels': 0,
+        'num_aggregation_labels': 0,
+        'init_cell_selection_weights_to_zero': False,
+        'learning_rate': 5e-5,
+        'num_train_examples': 25000 * 512,
+        'select_one_column': False,
+        'train_batch_size': 512,
+        'warmup_ratio': 0.01,
+        'compute_e2e_retrieval_metrics': True,
+        'compute_denotation_accuracy': False,
         'span_prediction': 'span',
     })
   else:

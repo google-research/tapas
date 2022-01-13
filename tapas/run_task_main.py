@@ -210,16 +210,17 @@ def _create_all_examples(
   file_utils.make_directories(example_dir)
 
   _create_examples(
+      task,
       interaction_dir,
       example_dir,
       vocab_file,
       task_utils.get_train_filename(task),
       batch_size=None,
       test_mode=test_mode)
-  _create_examples(interaction_dir, example_dir, vocab_file,
+  _create_examples(task, interaction_dir, example_dir, vocab_file,
                    task_utils.get_dev_filename(task), test_batch_size,
                    test_mode)
-  _create_examples(interaction_dir, example_dir, vocab_file,
+  _create_examples(task, interaction_dir, example_dir, vocab_file,
                    task_utils.get_test_filename(task), test_batch_size,
                    test_mode)
 
@@ -236,6 +237,7 @@ def _to_tf_compression_type(
 
 
 def _create_examples(
+    task,
     interaction_dir,
     example_dir,
     vocab_file,
@@ -259,6 +261,7 @@ def _create_examples(
       max_row_id=_MAX_TABLE_ID,
       strip_column_names=False,
       add_aggregation_candidates=False,
+      expand_entity_descriptions=(task == tasks.Task.HYBRIDQA),
   )
   converter = tf_example_utils.ToClassifierTensorflowExample(config)
 
@@ -380,7 +383,7 @@ def _train_and_predict(
   """Trains, produces test predictions and eval metric."""
   file_utils.make_directories(model_dir)
 
-  if task == tasks.Task.SQA:
+  if task in (tasks.Task.SQA, tasks.Task.HYBRIDQA, tasks.Task.HYBRIDQA_RC):
     num_aggregation_labels = 0
     num_classification_labels = 0
     use_answer_as_supervision = False

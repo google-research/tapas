@@ -16,13 +16,13 @@
 """Utils for creating contrastive statements."""
 
 import collections
+import dataclasses
 import enum
 import math
 import random
 from typing import Callable, Dict, Iterable, Optional, Set, Text, Tuple
 
 from absl import logging
-import dataclasses
 import nltk
 from tapas.protos import annotated_text_pb2
 from tapas.protos import interaction_pb2
@@ -50,6 +50,12 @@ class Reference:
 
 
 _ReferenceDict = Dict[Tuple[ReferenceType, Text], Reference]
+
+
+@dataclasses.dataclass(frozen=True)
+class InteractionReferences:
+  table: _ReferenceDict
+  question: Iterable[_ReferenceDict]
 
 
 def _is_float(text):
@@ -159,7 +165,8 @@ def _add_numeric_reference_from_cell(
       )
 
 
-def _get_question_references(question):
+def _get_question_references(
+    question):
   """Converts numeric and entity annotations in question to references."""
   references = {}
 
@@ -169,7 +176,7 @@ def _get_question_references(question):
   for span in spans:
     for value in span.values:
       if _is_numerically_one(value):
-        # One is special because of singuglar/plural and the pronoun.
+        # One is special because of singular/plural and the pronoun.
         continue
 
       text = question.original_text[span.begin_index:span.end_index]
@@ -213,17 +220,11 @@ def _only_occurs_in_a_single_column(reference):
   return len(columns) == 1
 
 
-def get_contrastive_candidates(
-    interaction):
-  """Creates replacement candidates."""
-  table = interaction.table
-  if len(table.columns) < 2:
-    return
-  if len(table.rows) < 2:
-    return
-
+def get_interaction_references(
+    interaction,):
+  """Finds references in the question and the table."""
   cell_references = {}
-  for row_index, row in enumerate(table.rows):
+  for row_index, row in enumerate(interaction.table.rows):
     for column_index, cell in enumerate(row.cells):
       _add_entity_from_cell(cell, cell_references, row_index, column_index)
       _add_numeric_reference_from_cell(cell, cell_references, row_index,
@@ -238,22 +239,40 @@ def get_contrastive_candidates(
       if _only_occurs_in_a_single_column(reference)
   }
 
+  # Restrict to the question identifiers that occur in the table.
+  question_references = []
+  for question in interaction.questions:
+    question_references.append({
+        i: ref
+        for i, ref in _get_question_references(question).items()
+        if i in cell_references
+    })
+
+  return InteractionReferences(cell_references, question_references)
+
+
+def get_contrastive_candidates(
+    interaction):
+  """Creates replacement candidates."""
+  table = interaction.table
+  if len(table.columns) < 2:
+    return
+  if len(table.rows) < 2:
+    return
+
+  interaction_references = get_interaction_references(interaction)
+
   identifiers_per_row = collections.defaultdict(set)
   identifiers_per_column = collections.defaultdict(set)
-  for identifier, reference in cell_references.items():
+  for identifier, reference in interaction_references.table.items():
     for row_index, column_index in reference.coordinates:
       identifiers_per_row[row_index].add(identifier)
       identifiers_per_column[column_index].add(identifier)
   logging.vlog(1, 'identifiers_per_row: %s', identifiers_per_row)
   logging.vlog(1, 'identifiers_per_column: %s', identifiers_per_column)
 
-  for question in interaction.questions:
-    references = _get_question_references(question)
-
-    # Restrict to the identifiers that occur in the table.
-    references = {
-        i: ref for i, ref in references.items() if i in cell_references
-    }
+  for question, references in zip(interaction.questions,
+                                  interaction_references.question):
 
     logging.vlog(1, 'references: %s', references)
 
@@ -264,7 +283,7 @@ def get_contrastive_candidates(
     for identifier, reference in references.items():
       logging.vlog(1, 'identifier: %s', identifier)
 
-      cell_reference = cell_references[identifier]
+      cell_reference = interaction_references.table[identifier]
       for row_index, column_index in cell_reference.coordinates:
 
         # Get ids in same row.
@@ -300,14 +319,16 @@ def get_contrastive_candidates(
         focus_texts = set(reference.span_texts)
         negative_replacement_texts = set()
         for i in cell_identifiers_in_column:
-          negative_replacement_texts.update(cell_references[i].span_texts)
+          negative_replacement_texts.update(
+              interaction_references.table[i].span_texts)
         support_texts = set()
         for i in cell_identifiers_in_row:
           support_texts.update(references[i].span_texts)
 
         # Positive replacement text is how the focus entity is mentioned in
         # the table this can be different from how it is mentioned in the text.
-        positive_replacements_texts = cell_references[identifier].span_texts
+        positive_replacements_texts = (
+            interaction_references.table[identifier].span_texts)
         focus_texts.update(positive_replacements_texts)
 
         # Sanity checks that might occur if span texts are ambiguous.
