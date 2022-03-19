@@ -34,7 +34,7 @@ class BertConfig(object):
   def __init__(self,
                vocab_size,
                hidden_size=768,
-               num_hidden_layers=12,
+               num_hidden_layers=24,
                num_attention_heads=12,
                intermediate_size=3072,
                hidden_act="gelu",
