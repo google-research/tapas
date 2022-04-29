@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python3
 
 from absl.testing import parameterized
 import numpy as np
@@ -21,6 +20,7 @@ from tapas.datasets import table_dataset_test_utils
 from tapas.models import tapas_pretraining_model
 from tapas.models.bert import modeling
 import tensorflow.compat.v1 as tf
+from tensorflow.compat.v1 import estimator as tf_estimator
 
 
 class TapasPretrainingModelTest(parameterized.TestCase, tf.test.TestCase):
@@ -62,10 +62,10 @@ class TapasPretrainingModelTest(parameterized.TestCase, tf.test.TestCase):
         num_warmup_steps=params["num_warmup_steps"],
         use_tpu=params["use_tpu"])
 
-    estimator = tf.estimator.tpu.TPUEstimator(
+    estimator = tf_estimator.tpu.TPUEstimator(
         use_tpu=params["use_tpu"],
         model_fn=model_fn,
-        config=tf.estimator.tpu.RunConfig(
+        config=tf_estimator.tpu.RunConfig(
             model_dir=self.get_temp_dir(),
             save_summary_steps=params["num_train_steps"],
             save_checkpoints_steps=params["num_train_steps"]),

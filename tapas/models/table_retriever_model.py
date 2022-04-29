@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python3
 """Table retireval model based on TAPAS instances."""
 
 import collections
@@ -30,6 +29,7 @@ from tapas.models.bert import modeling
 from tapas.models.bert import optimization
 from tapas.models.bert import table_bert
 import tensorflow.compat.v1 as tf
+from tensorflow.compat.v1 import estimator as tf_estimator
 
 # Used to mask the logits of the repeated elements
 _INF = 10000.0
@@ -452,7 +452,7 @@ def model_fn_builder(config: RetrieverConfig):
                       init_string)
 
     output_spec = None
-    if mode == tf.estimator.ModeKeys.TRAIN:
+    if mode == tf_estimator.ModeKeys.TRAIN:
       train_op = optimization.create_optimizer(
           total_loss,
           config.learning_rate,
@@ -461,14 +461,14 @@ def model_fn_builder(config: RetrieverConfig):
           config.use_tpu,
           grad_clipping=config.grad_clipping)
 
-      output_spec = tf.estimator.tpu.TPUEstimatorSpec(
+      output_spec = tf_estimator.tpu.TPUEstimatorSpec(
           mode=mode,
           loss=total_loss,
           train_op=train_op,
           scaffold_fn=scaffold_fn)
-    elif mode == tf.estimator.ModeKeys.EVAL:
+    elif mode == tf_estimator.ModeKeys.EVAL:
       eval_metrics = (_calculate_eval_metrics_fn, [total_loss, logits, labels])
-      output_spec = tf.estimator.tpu.TPUEstimatorSpec(
+      output_spec = tf_estimator.tpu.TPUEstimatorSpec(
           mode=mode,
           loss=total_loss,
           eval_metrics=eval_metrics,
@@ -488,7 +488,7 @@ def model_fn_builder(config: RetrieverConfig):
         predictions["table_id"] = features["table_id"]
       if "question_id" in features:
         predictions["query_id"] = features["question_id"]
-      output_spec = tf.estimator.tpu.TPUEstimatorSpec(
+      output_spec = tf_estimator.tpu.TPUEstimatorSpec(
           mode=mode, predictions=predictions, scaffold_fn=scaffold_fn)
     return output_spec
 

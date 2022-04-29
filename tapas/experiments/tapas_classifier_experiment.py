@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python3
 """TAPAS classifier experiment."""
 
 import functools
@@ -31,6 +30,7 @@ from tapas.scripts import prediction_utils as pred_utils
 from tapas.utils import attention_utils
 from tapas.utils import experiment_utils  # pylint: disable=unused-import
 import tensorflow.compat.v1 as tf
+from tensorflow.compat.v1 import estimator as tf_estimator
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string("data_format", "tfrecord", "The input data format.")
@@ -219,6 +219,7 @@ flags.DEFINE_enum(
         "same_colum_or_row",
         "headwise_same_colum_or_row",
         "headwise_efficient",
+        "table_attention"
     ],
     "Options to restrict attention if tokens are in the same row/column.")
 
@@ -282,6 +283,19 @@ flags.DEFINE_integer(
     -1,
     "If > 0, down-project key and values in self attention computation.",
 )
+
+flags.DEFINE_bool(
+    "attention_bias_use_relative_scalar_only", True,
+    "Whether to use only relative scalar (no embedding) for attention bias in"
+    "TableFormer. Takes effect only if `restrict_attention_mode` is"
+    "\"table_attention\".")
+
+flags.DEFINE_integer(
+    "attention_bias_disabled", 0,
+    "Attention bias that should be disabled (for ablation studies) in"
+    "TableFormer. Each number maps to a specific relationship id. Mapping can"
+    "be found in tapas/utils/tableformer_utils.py. Takes effect only if"
+    "`restrict_attention_mode` is \"table_attention\".")
 
 
 
@@ -435,6 +449,9 @@ def main(_):
       span_prediction=tapas_classifier_model.SpanPredictionMode(
           FLAGS.span_prediction),
       proj_value_length=_get_projection_length(FLAGS.proj_value_length),
+      attention_bias_disabled=FLAGS.attention_bias_disabled,
+      attention_bias_use_relative_scalar_only=FLAGS
+      .attention_bias_use_relative_scalar_only,
   )
 
   model_fn = tapas_classifier_model.model_fn_builder(tapas_config)

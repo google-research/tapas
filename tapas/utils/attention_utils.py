@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python3
 """Helper methods to restrict attention in Transformer models."""
 
 import dataclasses
@@ -32,6 +31,7 @@ class RestrictAttentionMode(str, enum.Enum):
   SAME_COLUMN_OR_ROW = 'same_colum_or_row'
   HEADWISE_SAME_COLUMN_OR_ROW = 'headwise_same_colum_or_row'
   HEADWISE_EFFICIENT = 'headwise_efficient'
+  TABLE_ATTENTION = 'table_attention'
 
 
 def _matches_token_type_id(tensor):

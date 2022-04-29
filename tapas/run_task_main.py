@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python3
 """Script for creating TF examples, training and evaluation."""
 
 import dataclasses
@@ -40,6 +39,7 @@ from tapas.utils import task_utils
 from tapas.utils import tasks
 from tapas.utils import tf_example_utils
 import tensorflow.compat.v1 as tf
+from tensorflow.compat.v1 import estimator as tf_estimator
 
 
 tf.disable_v2_behavior()
@@ -473,7 +473,7 @@ def _train_and_predict(
 
   model_fn = tapas_classifier_model.model_fn_builder(tapas_config)
 
-  is_per_host = tf.estimator.tpu.InputPipelineConfig.PER_HOST_V2
+  is_per_host = tf_estimator.tpu.InputPipelineConfig.PER_HOST_V2
 
   tpu_cluster_resolver = None
   if tpu_options.use_tpu and tpu_options.tpu_name:
@@ -483,7 +483,7 @@ def _train_and_predict(
         project=tpu_options.gcp_project,
     )
 
-  run_config = tf.estimator.tpu.RunConfig(
+  run_config = tf_estimator.tpu.RunConfig(
       cluster=tpu_cluster_resolver,
       master=tpu_options.master,
       model_dir=model_dir,
@@ -491,13 +491,13 @@ def _train_and_predict(
       save_checkpoints_steps=1000,
       keep_checkpoint_max=5,
       keep_checkpoint_every_n_hours=4.0,
-      tpu_config=tf.estimator.tpu.TPUConfig(
+      tpu_config=tf_estimator.tpu.TPUConfig(
           iterations_per_loop=tpu_options.iterations_per_loop,
           num_shards=tpu_options.num_tpu_cores,
           per_host_input_for_training=is_per_host))
 
   # If TPU is not available, this will fall back to normal Estimator on CPU/GPU.
-  estimator = tf.estimator.tpu.TPUEstimator(
+  estimator = tf_estimator.tpu.TPUEstimator(
       params={'gradient_accumulation_steps': gradient_accumulation_steps},
       use_tpu=tpu_options.use_tpu,
       model_fn=model_fn,

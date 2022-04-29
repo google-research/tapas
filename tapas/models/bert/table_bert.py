@@ -12,15 +12,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python3
 """TABLE BERT utility functions."""
 import dataclasses
+import functools
 from typing import Any, Optional
 
 from tapas.models.bert import modeling
 from tapas.utils import attention_utils
+from tapas.utils import tableformer_utils
 import tensorflow.compat.v1 as tf
-
+from tensorflow.compat.v1 import estimator as tf_estimator
 
 _AttentionMode = attention_utils.RestrictAttentionMode
 
@@ -39,6 +40,8 @@ class CustomAttentionConfig:
   restrict_attention_header_size: int = 0
   restrict_attention_row_heads_ratio: float = 0.5
   restrict_attention_sort_after_projection: bool = True
+  attention_bias_disabled: int = 0
+  attention_bias_use_relative_scalar_only: bool = True
 
 
 def get_token_type_features():
@@ -53,7 +56,7 @@ def get_token_type_ids(features, token_type_features, disabled_features):
   disabled_ids = []
   for i, key in enumerate(token_type_features):
     if disabled_features is not None and key in disabled_features:
-      tf.logging.info("Disable " + key)
+      tf.logging.info("Disable %s", key)
       disabled_ids.append(i)
     token_type_ids.append(features[key])
   return token_type_ids, disabled_ids
@@ -92,6 +95,16 @@ def run_custom_attention(
         sort_after_projection=config.restrict_attention_sort_after_projection,
         token_type_ids=[(num_row_heads, True, features["row_ids"]),
                         (num_column_heads, False, features["column_ids"])])
+
+  elif restrict_attention_mode == _AttentionMode.TABLE_ATTENTION:
+    custom_attention_layer = functools.partial(
+        modeling.attention_layer,
+        relative_relation_ids=tableformer_utils.get_relative_relation_ids(
+            features, disabled_attention_bias=config.attention_bias_disabled),
+        use_relative_scalar_only=config.attention_bias_use_relative_scalar_only,
+        relative_relation_ids_vocab_size=tableformer_utils
+        .RELATIVE_RELATION_IDS_VOCAB_SIZE,
+    )
   elif restrict_attention_mode == _AttentionMode.FULL:
     pass
   else:
@@ -116,9 +129,11 @@ def create_model(
     disable_position_embeddings=False,
     reset_position_index_per_cell=False,
     proj_value_length=None,
+    attention_bias_disabled=0,
+    attention_bias_use_relative_scalar_only=True,
 ):
   """Creates a TABLE BERT model."""
-  is_training = (mode == tf.estimator.ModeKeys.TRAIN)
+  is_training = (mode == tf_estimator.ModeKeys.TRAIN)
   token_type_features = get_token_type_features()
   token_type_ids, disabled_ids = get_token_type_ids(
       features=features,
@@ -133,6 +148,8 @@ def create_model(
           restrict_attention_bucket_size=restrict_attention_bucket_size,
           restrict_attention_header_size=restrict_attention_header_size,
           restrict_attention_sort_after_projection=restrict_attention_sort_after_projection,
+          attention_bias_disabled=attention_bias_disabled,
+          attention_bias_use_relative_scalar_only=attention_bias_use_relative_scalar_only,
       ),
       features=features,
   )

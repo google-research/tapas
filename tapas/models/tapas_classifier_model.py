@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python3
 """TAPAS BERT model for classification."""
 
 import dataclasses
@@ -31,6 +30,7 @@ from tapas.utils import attention_utils
 from tapas.utils import span_prediction_utils
 from tapas.utils import table_pruning
 import tensorflow.compat.v1 as tf
+from tensorflow.compat.v1 import estimator as tf_estimator
 import tensorflow_probability as tfp
 
 SpanPredictionMode = span_prediction_utils.SpanPredictionMode
@@ -110,6 +110,12 @@ class TapasClassifierConfig:
   cell_cross_entropy: Whether to use cross entropy for cell selection loss.
   cell_cross_entropy_hard_em: When using cell cross entropy, whether to use hard
     or soft EM for cases with more than one ground truth cell.
+  attention_bias_use_relative_scalar_only: Whether to use bias scalar only
+    instead of vector. This only appies if the `restrict_attention_mode` is set
+    to "table_attention".
+  attention_bias_disabled: Which bias type to disable for ablation.
+    Defaults to 0 which takes no effect. This only appies if the
+    `restrict_attention_mode` is set to "table_attention".
   """
 
   bert_config: modeling.BertConfig
@@ -157,6 +163,8 @@ class TapasClassifierConfig:
   restrict_attention_row_heads_ratio: float = 0.5
   cell_cross_entropy: bool = False
   cell_cross_entropy_hard_em: bool = False
+  attention_bias_disabled: int = 0
+  attention_bias_use_relative_scalar_only: bool = True
 
   def to_json_string(self):
     """Serializes this instance to a JSON string."""
@@ -981,7 +989,7 @@ def model_fn_builder(
         tf.squeeze(features["classification_class_index"], axis=[1])
         if do_model_classification else None)
 
-    is_training = (mode == tf.estimator.ModeKeys.TRAIN)
+    is_training = (mode == tf_estimator.ModeKeys.TRAIN)
     model = table_bert.create_model(
         features=features,
         mode=mode,
@@ -996,6 +1004,9 @@ def model_fn_builder(
         disable_position_embeddings=config.disable_position_embeddings,
         reset_position_index_per_cell=config.reset_position_index_per_cell,
         proj_value_length=config.proj_value_length,
+        attention_bias_disabled=config.attention_bias_disabled,
+        attention_bias_use_relative_scalar_only=(
+            config.attention_bias_use_relative_scalar_only),
     )
 
     answer, numeric_values, numeric_values_scale = (
@@ -1083,7 +1094,7 @@ def model_fn_builder(
                       init_string)
 
     output_spec = None
-    if mode == tf.estimator.ModeKeys.TRAIN:
+    if mode == tf_estimator.ModeKeys.TRAIN:
       train_op = optimization.create_optimizer(
           total_loss,
           config.learning_rate,
@@ -1094,12 +1105,12 @@ def model_fn_builder(
                                                  1),
           grad_clipping=config.grad_clipping)
 
-      output_spec = tf.estimator.tpu.TPUEstimatorSpec(
+      output_spec = tf_estimator.tpu.TPUEstimatorSpec(
           mode=mode,
           loss=total_loss,
           train_op=train_op,
           scaffold_fn=scaffold_fn)
-    elif mode == tf.estimator.ModeKeys.EVAL:
+    elif mode == tf_estimator.ModeKeys.EVAL:
       eval_metrics = (
           _calculate_eval_metrics_fn,
           [
@@ -1113,7 +1124,7 @@ def model_fn_builder(
               outputs.logits_cls,
               table_pruning_loss,
           ])
-      output_spec = tf.estimator.tpu.TPUEstimatorSpec(
+      output_spec = tf_estimator.tpu.TPUEstimatorSpec(
           mode=mode,
           loss=total_loss,
           eval_metrics=eval_metrics,
@@ -1169,7 +1180,7 @@ def model_fn_builder(
 
       if custom_prediction_keys:
         predictions = {key: predictions[key] for key in custom_prediction_keys}
-      output_spec = tf.estimator.tpu.TPUEstimatorSpec(
+      output_spec = tf_estimator.tpu.TPUEstimatorSpec(
           mode=mode, predictions=predictions, scaffold_fn=scaffold_fn)
     return output_spec
 

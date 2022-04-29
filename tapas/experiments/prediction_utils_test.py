@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python3
 import csv
 import os
 import tempfile
@@ -28,6 +27,7 @@ from tapas.experiments import prediction_utils
 from tapas.models import tapas_classifier_model
 from tapas.models.bert import modeling
 import tensorflow.compat.v1 as tf
+from tensorflow.compat.v1 import estimator as tf_estimator
 
 
 FLAGS = flags.FLAGS
@@ -127,10 +127,10 @@ class PredictionUtilsTest(tf.test.TestCase, parameterized.TestCase):
         select_one_column=True)
     model_fn = tapas_classifier_model.model_fn_builder(tapas_config)
 
-    estimator = tf.estimator.tpu.TPUEstimator(
+    estimator = tf_estimator.tpu.TPUEstimator(
         use_tpu=False,
         model_fn=model_fn,
-        config=tf.estimator.tpu.RunConfig(model_dir=self.get_temp_dir()),
+        config=tf_estimator.tpu.RunConfig(model_dir=self.get_temp_dir()),
         train_batch_size=_BATCH_SIZE,
         predict_batch_size=_BATCH_SIZE,
         eval_batch_size=_BATCH_SIZE)

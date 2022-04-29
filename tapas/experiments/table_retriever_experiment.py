@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python3
 """Table retriever experiment."""
 
 import csv
@@ -27,6 +26,7 @@ from tapas.models import table_retriever_model
 from tapas.scripts import eval_table_retriever_utils
 from tapas.utils import experiment_utils  # pylint: disable=unused-import
 import tensorflow.compat.v1 as tf
+from tensorflow.compat.v1 import estimator as tf_estimator
 
 tf.disable_v2_behavior()
 

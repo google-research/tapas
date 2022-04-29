@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python3
 """Defines the methods to use for table pruning."""
 
 from typing import Any, Callable, Dict, List, Optional, Text
@@ -25,6 +24,7 @@ from tapas.models.bert import modeling
 from tapas.models.bert import table_bert
 from tapas.protos import table_pruning_pb2
 import tensorflow.compat.v1 as tf
+from tensorflow.compat.v1 import estimator as tf_estimator
 
 from google.protobuf import text_format
 
@@ -287,7 +287,7 @@ class TapasPruningSelector(ModelPruningSelector):
       features):
     """Gets the columns scores by avereging the tokens scores."""
     with tf.variable_scope(PRUNING_SCOPE, reuse=tf.AUTO_REUSE):
-      if mode == tf.estimator.ModeKeys.TRAIN:
+      if mode == tf_estimator.ModeKeys.TRAIN:
         output_layer = tf.nn.dropout(
             output_layer, keep_prob=_SEQUENCE_OUTPUT_KEEP_PROB)
       input_mask = features["input_mask"]
@@ -349,7 +349,7 @@ class TapasPruningSelector(ModelPruningSelector):
       output_layer = model.get_sequence_output()
       self._output_layer = model.get_sequence_output()
       self._pooled_output = model.get_pooled_output()
-      if mode == tf.estimator.ModeKeys.TRAIN:
+      if mode == tf_estimator.ModeKeys.TRAIN:
         output_layer = tf.nn.dropout(
             output_layer, keep_prob=_SEQUENCE_OUTPUT_KEEP_PROB)
       # No temperature is used.
@@ -551,7 +551,7 @@ class LossSelector:
     raise NotImplementedError()
 
   def apply_hard_selection(self, mode, scores):
-    if mode == tf.estimator.ModeKeys.TRAIN:
+    if mode == tf_estimator.ModeKeys.TRAIN:
       return self._train_hard_selection.apply_hard_selection(scores)
     return self._eval_hard_selection.apply_hard_selection(scores)
 

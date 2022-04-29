@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python3
 """TAPAS pretraining experiment."""
 
 import functools
@@ -71,6 +70,17 @@ flags.DEFINE_bool(
     "do_predict", False,
     "Whether to run the model in inference mode on the test set.")
 
+flags.DEFINE_enum(
+    "restrict_attention_mode",
+    "full",
+    [
+        "full",
+        "same_colum_or_row",
+        "headwise_same_colum_or_row",
+        "table_attention"
+    ],
+    "Options to restrict attention if tokens are in the same row/column.")
+
 flags.DEFINE_list("disabled_features", [],
                   "Features that should be disabled (for ablation studies).")
 
@@ -79,6 +89,19 @@ flags.DEFINE_bool("disable_position_embeddings", False,
 
 flags.DEFINE_bool("reset_position_index_per_cell", False,
                   "Whether to restart position indexes at every cell.")
+
+flags.DEFINE_bool(
+    "attention_bias_use_relative_scalar_only", True,
+    "Whether to use only relative scalar (no embedding) for attention bias in"
+    "TableFormer. Takes effect only if `restrict_attention_mode` is"
+    "\"table_attention\".")
+
+flags.DEFINE_integer(
+    "attention_bias_disabled", 0,
+    "Attention bias that should be disabled (for ablation studies) in"
+    "TableFormer. Each number maps to a specific relationship id. Mapping can"
+    "be found in tapas/utils/tableformer_utils.py. Takes effect only if"
+    "`restrict_attention_mode` is \"table_attention\".")
 
 
 flags.DEFINE_integer(
@@ -108,6 +131,9 @@ def main(_):
       reset_position_index_per_cell=FLAGS.reset_position_index_per_cell,
       proj_value_length=FLAGS.proj_value_length
       if FLAGS.proj_value_length > 0 else None,
+      attention_bias_disabled=FLAGS.attention_bias_disabled,
+      attention_bias_use_relative_scalar_only=FLAGS
+      .attention_bias_use_relative_scalar_only,
   )
   estimator = experiment_utils.build_estimator(model_fn)
 

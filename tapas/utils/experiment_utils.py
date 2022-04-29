@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python3
 """Experiment utilities."""
 
 import datetime
@@ -26,6 +25,7 @@ from absl import logging
 from tapas.models.bert import modeling
 from tapas.scripts import calc_metrics_utils
 import tensorflow.compat.v1 as tf
+from tensorflow.compat.v1 import estimator as tf_estimator
 
 
 flags.DEFINE_string("model_dir", None,
@@ -146,8 +146,8 @@ def build_estimator(model_fn):
     tpu_cluster_resolver = tf.distribute.cluster_resolver.TPUClusterResolver(
         FLAGS.tpu_name, zone=FLAGS.tpu_zone, project=FLAGS.gcp_project)
 
-  is_per_host = tf.estimator.tpu.InputPipelineConfig.PER_HOST_V2
-  run_config = tf.estimator.tpu.RunConfig(
+  is_per_host = tf_estimator.tpu.InputPipelineConfig.PER_HOST_V2
+  run_config = tf_estimator.tpu.RunConfig(
       cluster=tpu_cluster_resolver,
       master=FLAGS.master,
       model_dir=FLAGS.model_dir,
@@ -155,14 +155,14 @@ def build_estimator(model_fn):
       save_checkpoints_steps=FLAGS.save_checkpoints_steps,
       keep_checkpoint_max=FLAGS.keep_checkpoint_max,
       keep_checkpoint_every_n_hours=FLAGS.keep_checkpoint_every_n_hours,
-      tpu_config=tf.estimator.tpu.TPUConfig(
+      tpu_config=tf_estimator.tpu.TPUConfig(
           iterations_per_loop=FLAGS.tpu_iterations_per_loop,
           num_shards=FLAGS.num_tpu_cores,
           per_host_input_for_training=is_per_host))
 
   # If TPU is not available, this will fall back to normal Estimator on CPU
   # or GPU.
-  return tf.estimator.tpu.TPUEstimator(
+  return tf_estimator.tpu.TPUEstimator(
       params={
           "gradient_accumulation_steps": FLAGS.gradient_accumulation_steps,
           "drop_remainder": FLAGS.use_tpu,

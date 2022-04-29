@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python3
 """Tests for third_party.py.tapas.utils.table_pruning."""
 
 import tempfile
@@ -24,6 +23,7 @@ from tapas.models.bert import modeling
 from tapas.protos import table_pruning_pb2
 from tapas.utils import table_pruning
 import tensorflow.compat.v1 as tf
+from tensorflow.compat.v1 import estimator as tf_estimator
 
 tf.disable_v2_behavior()
 
@@ -149,7 +149,7 @@ class TablePruningTest(parameterized.TestCase, tf.test.TestCase):
       loss_selector = table_pruning.LossSelector(
           config=_Loss(train=config, eval=config), max_num_tokens=4)
       hard_selection_mask = loss_selector.apply_hard_selection(
-          scores=scores, mode=tf.estimator.ModeKeys.TRAIN)
+          scores=scores, mode=tf_estimator.ModeKeys.TRAIN)
       sess.run(tf.global_variables_initializer())
       hard_selection_mask = sess.run(hard_selection_mask)
       tf.logging.info("-------------hard_selection_mask---------------")
@@ -191,7 +191,7 @@ class TablePruningTest(parameterized.TestCase, tf.test.TestCase):
       selector = table_pruning.TapasPruningSelector(
           config=config, max_num_columns=4, max_num_rows=4, max_num_tokens=4)
       hard_selection_mask = selector.apply_hard_selection(
-          scores=scores, mode=tf.estimator.ModeKeys.TRAIN)
+          scores=scores, mode=tf_estimator.ModeKeys.TRAIN)
       sess.run(tf.global_variables_initializer())
       hard_selection_mask = sess.run(hard_selection_mask)
       tf.logging.info("-------------hard_selection_mask---------------")
@@ -261,7 +261,7 @@ class TablePruningTest(parameterized.TestCase, tf.test.TestCase):
           max_num_rows=max_num_columns,
           max_num_tokens=max_num_tokens)
 
-      column_scores = model.select_columns(tf.estimator.ModeKeys.TRAIN,
+      column_scores = model.select_columns(tf_estimator.ModeKeys.TRAIN,
                                            features)
 
       tf.logging.info("*** Features ***")
@@ -292,7 +292,7 @@ class TablePruningTest(parameterized.TestCase, tf.test.TestCase):
   def test_disable_table_pruning(self,):
     features = _create_features()
     model = table_pruning.NoTablePruning()
-    column_scores = model.select_columns(tf.estimator.ModeKeys.TRAIN, features)
+    column_scores = model.select_columns(tf_estimator.ModeKeys.TRAIN, features)
     self.assertIsNone(column_scores)
     loss = model.compute_loss(column_scores, column_scores, column_scores, None)
     self.assertIsNone(loss)
@@ -307,13 +307,13 @@ class TablePruningTest(parameterized.TestCase, tf.test.TestCase):
           config=table_pruning_pb2.FirstTokens(),
           max_num_columns=max_num_columns,
           max_num_tokens=max_num_tokens)
-      column_scores = model.select_columns(tf.estimator.ModeKeys.TRAIN,
+      column_scores = model.select_columns(tf_estimator.ModeKeys.TRAIN,
                                            features)
       loss = model.compute_loss(column_scores, column_scores, column_scores,
                                 None)
       token_scores = tf.cast(tf.ones_like(column_ids), dtype=tf.float32)
       token_scores = model.apply_hard_selection(
-          mode=tf.estimator.ModeKeys.TRAIN, scores=token_scores)
+          mode=tf_estimator.ModeKeys.TRAIN, scores=token_scores)
       sess.run(tf.global_variables_initializer())
       column_ids, column_scores = sess.run([column_ids, column_scores])
       tf.logging.info("-------------column_ids---------------")
@@ -373,7 +373,7 @@ class TablePruningTest(parameterized.TestCase, tf.test.TestCase):
           max_num_columns=max_num_columns,
           max_num_rows=max_num_columns,
           max_num_tokens=max_num_tokens)
-      column_scores = model.select_columns(tf.estimator.ModeKeys.TRAIN,
+      column_scores = model.select_columns(tf_estimator.ModeKeys.TRAIN,
                                            features)
       column_score_mask = table_pruning.get_mask_columns_scores(
           max_num_columns=max_num_columns,
@@ -448,7 +448,7 @@ class TablePruningTest(parameterized.TestCase, tf.test.TestCase):
           max_num_rows=max_num_columns,
           max_num_tokens=max_num_tokens)
       stats = selector.compute_scores(
-          mode=tf.estimator.ModeKeys.TRAIN, features=features)
+          mode=tf_estimator.ModeKeys.TRAIN, features=features)
       token_scores = stats.token_scores
       sess.run(tf.global_variables_initializer())
       token_scores = sess.run(token_scores)
@@ -487,7 +487,7 @@ class TablePruningTest(parameterized.TestCase, tf.test.TestCase):
           max_num_rows=max_num_columns,
           max_num_tokens=max_num_tokens)
       stats = selector.compute_scores(
-          mode=tf.estimator.ModeKeys.TRAIN, features=features)
+          mode=tf_estimator.ModeKeys.TRAIN, features=features)
       token_scores = stats.token_scores
       gather_op = stats.gather_op
       new_features = gather_op(features=features, scores=token_scores)

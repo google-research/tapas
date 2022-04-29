@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python3
 """The main BERT model and related functions."""
 
 import collections
@@ -20,6 +19,7 @@ import copy
 import json
 import math
 import re
+
 from absl import logging
 import numpy as np
 import six
@@ -782,22 +782,81 @@ def dense_layer_2d(input_tensor,
     return ret
 
 
-def attention_layer(from_tensor,
-                    to_tensor,
-                    attention_mask=None,
-                    input_mask=None,
-                    num_attention_heads=1,
-                    size_per_head=512,
-                    query_act=None,
-                    key_act=None,
-                    value_act=None,
-                    attention_probs_dropout_prob=0.0,
-                    initializer_range=0.02,
-                    softmax_temperature=1.0,
-                    batch_size=None,
-                    from_seq_length=None,
-                    to_seq_length=None,
-                    to_proj_length=None):
+def compute_relative_attention_scores(
+    queries,
+    relative_att_ids,
+    relative_vocab_size,
+    num_heads,
+    key_size_per_head,
+    use_relative_scalar_only = True,
+):
+  """Computes relative attention scores.
+
+  Args:
+    queries: <float32>[batch_size, query_len, num_heads, key_size_per_head].
+      Queries for the attention head module.
+    relative_att_ids: <int32>[batch_size, query_len, key_len]. Relative
+      attention ids.
+    relative_vocab_size: Attention bias vocab size.
+    num_heads: Number of attention heads.
+    key_size_per_head: Bias embeding dimension.
+    use_relative_scalar_only: Whether to use bias scalar only.
+    use_one_hot_lookup: Whether to use bias table lookup or matrix multiplying.
+
+  Returns:
+    <float32>[batch_size, query_len, key_len, num_heads] Tensor.
+  """
+  gather_op = tf.gather
+
+  # <float32>[relative_vocab_size, num_heads]
+  relative_bias_table = tf.get_variable(
+      name="relative_bias_table",
+      shape=[relative_vocab_size, num_heads],
+      initializer=tf.zeros_initializer,
+      trainable=True)
+
+  # <float32>[batch_size, num_heads, query_len, key_len]
+  relative_att_scores = tf.transpose(
+      gather_op(relative_bias_table, relative_att_ids), [0, 3, 1, 2])
+  if use_relative_scalar_only:
+    return relative_att_scores
+
+  # <float32>[relative_vocab_size, num_heads, key_size_per_head]
+  relative_emb_table = tf.get_variable(
+      name="relative_emb_table",
+      shape=[relative_vocab_size, num_heads, key_size_per_head],
+      initializer=tf.truncated_normal_initializer(stddev=0.02),
+      trainable=True)
+  # <float32>[batch_size, query_len, key_len, num_heads, key_size_per_head]
+  gathered_relative_emb = gather_op(relative_emb_table, relative_att_ids)
+  # <float32>[batch_size, num_heads, query_len, key_len]
+  return tf.transpose(
+      relative_att_scores +
+      tf.einsum("bqhd,bqkhd->bhqk", queries, gathered_relative_emb),
+      [0, 3, 1, 2])
+
+
+def attention_layer(
+    from_tensor,
+    to_tensor,
+    attention_mask=None,
+    input_mask=None,
+    num_attention_heads=1,
+    size_per_head=512,
+    query_act=None,
+    key_act=None,
+    value_act=None,
+    attention_probs_dropout_prob=0.0,
+    initializer_range=0.02,
+    softmax_temperature=1.0,
+    batch_size=None,
+    from_seq_length=None,
+    to_seq_length=None,
+    to_proj_length=None,
+    relative_relation_ids=None,
+    use_relative_scalar_only=True,
+    relative_relation_ids_vocab_size=None,
+):
   """Performs multi-headed attention from `from_tensor` to `to_tensor`.
 
   This is an implementation of multi-headed attention based on "Attention
@@ -852,7 +911,12 @@ def attention_layer(from_tensor,
     to_seq_length: (Optional) If the input is 2D, this might be the seq length
       of the 3D version of the `to_tensor`.
     to_proj_length: (Optional) Int. Down-project keys and values to this length.
-
+    relative_relation_ids: (Optional) int32 Tensor of shape [batch_size,
+      from_seq_length, to_seq_length].
+    use_relative_scalar_only: (Optional) bool. Whether to use bias scalar only
+      instead of vector.
+    relative_relation_ids_vocab_size: (Optional) int. Size of the vocab for
+      relative relation ids.
   Returns:
     float Tensor of shape [batch_size, from_seq_length, num_attention_heads,
       size_per_head].
@@ -955,6 +1019,18 @@ def attention_layer(from_tensor,
     # effectively the same as removing these entirely.
     attention_scores += adder
 
+  # Adds relative relation id based attention scores.
+  if relative_relation_ids is not None:
+    relative_attention_scores = (
+        compute_relative_attention_scores(
+            query_layer,
+            relative_relation_ids,
+            relative_vocab_size=relative_relation_ids_vocab_size,
+            num_heads=num_attention_heads,
+            key_size_per_head=size_per_head,
+            use_relative_scalar_only=use_relative_scalar_only,
+        ))
+    attention_scores += relative_attention_scores
   # Normalize the attention scores to probabilities.
   # `attention_probs` = [B, N, F, T]
   attention_probs = tf.nn.softmax(attention_scores)

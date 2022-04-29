@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python3
 """A tensor supporting reduction over irregularly grouped entries.
 
 A segmented tensor is a tensor with a set of indices {0, ..., num_segments - 1}

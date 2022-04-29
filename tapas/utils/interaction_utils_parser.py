@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python3
 """This module implements a simple parser for Interaction.
 
 It will parse answer_texts to populate other fields (e.g. answer_coordinates,

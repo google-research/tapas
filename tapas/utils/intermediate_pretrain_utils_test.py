@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python3
 
 import os
 import tempfile
@@ -23,11 +22,14 @@ from absl.testing import parameterized
 
 from tapas.protos import interaction_pb2
 from tapas.utils import beam_runner
+from tapas.utils import contrastive_statements_test_utils
 from tapas.utils import intermediate_pretrain_utils
 from tapas.utils import synthesize_entablement
 from tapas.utils import tf_example_utils
 
 import tensorflow.compat.v1 as tf
+from google.protobuf import text_format
+
 
 FLAGS = flags.FLAGS
 TEST_PATH = "tapas/utils/testdata/"
@@ -52,6 +54,7 @@ class CreatePretrainingDataTest(parameterized.TestCase):
     super(CreatePretrainingDataTest, self).setUp()
 
     self._test_dir = TEST_PATH
+
 
   @parameterized.parameters(
       (beam_runner.RunnerType.DIRECT, False),

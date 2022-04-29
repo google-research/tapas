@@ -12,9 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python3
 """Pipeline for generating synthetic statements for tables."""
 
+import collections
 import enum
 import os
 import random
@@ -43,6 +43,8 @@ class FlumeCounter(synthesize_entablement.Counter):
 
   def count(self, message):
     beam.metrics.Metrics.counter(_NS, message).inc()
+
+
 
 
 def synthesize_fn(

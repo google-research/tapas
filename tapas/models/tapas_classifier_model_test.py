@@ -12,8 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Lint as: python3
-
 import os
 import tempfile
 from typing import Iterator, Tuple
@@ -27,6 +25,7 @@ from tapas.models.bert import modeling
 from tapas.protos import table_pruning_pb2
 from tapas.utils import attention_utils
 import tensorflow.compat.v1 as tf
+from tensorflow.compat.v1 import estimator as tf_estimator
 
 from google.protobuf import text_format
 
@@ -122,7 +121,7 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
     )
     model_fn = tapas_classifier_model.model_fn_builder(tapas_config)
 
-    estimator = tf.estimator.tpu.TPUEstimator(
+    estimator = tf_estimator.tpu.TPUEstimator(
         params={
             "gradient_accumulation_steps":
                 params.get("gradient_accumulation_steps", 1),
@@ -131,7 +130,7 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
         },
         use_tpu=params["use_tpu"],
         model_fn=model_fn,
-        config=tf.estimator.tpu.RunConfig(
+        config=tf_estimator.tpu.RunConfig(
             model_dir=tempfile.mkdtemp(dir=self.get_temp_dir()),
             save_summary_steps=params["num_train_steps"],
             save_checkpoints_steps=params["num_train_steps"]),
@@ -158,6 +157,7 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
       dict(select_one_column=True),
       dict(do_gradient_accumulation=True),
       dict(attention=attention_utils.RestrictAttentionMode.HEADWISE_EFFICIENT),
+      dict(attention=attention_utils.RestrictAttentionMode.TABLE_ATTENTION),
       dict(cell_cross_entropy=True),
       dict(cell_cross_entropy_hard_em=True),
   )
@@ -231,6 +231,13 @@ class TapasClassifierModelTest(parameterized.TestCase, tf.test.TestCase):
     if load_checkpoint:
       params["init_checkpoint"] = estimator.model_dir
       params["fail_if_missing_variables_in_checkpoint"] = True
+
+      # This mode adds extra parameters that will not be present.
+      if attention in [
+          attention_utils.RestrictAttentionMode.TABLE_ATTENTION
+      ]:
+        params["fail_if_missing_variables_in_checkpoint"] = False
+
       estimator = self._create_estimator(params)
       estimator.train(_input_fn, max_steps=params["num_train_steps"])
 
