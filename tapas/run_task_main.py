@@ -586,6 +586,10 @@ def _predict(
 ):
   """Writes predictions for dev and test."""
   for test_set in TestSet:
+    filename=_get_test_filename(task,test_set)
+    if test_set==TestSet.DEV and not(os.path.isfile(os.path.join(output_dir, 'tf_examples', f'{filename}.tfrecord'))):
+      # print('Skip if there is no dev present')
+      continue
     _predict_for_set(
         estimator,
         do_model_aggregation,
@@ -833,7 +837,7 @@ def _check_options(output_dir, task, mode):
   tf_examples = _get_test_examples_file(
       task,
       output_dir,
-      test_set=TestSet.DEV,
+      test_set= TestSet.TEST,
   )
   if not tf.io.gfile.exists(tf_examples):
     raise ValueError(f'No TF examples found: {tf_examples}')
