@@ -1,5 +1,10 @@
 # TAble PArSing (TAPAS)
 
+<p>
+<a href="https://console.tiyaro.ai/explore?q=google/tapas-&pub=google"> <img src="https://tiyaro-public-docs.s3.us-west-2.amazonaws.com/assets/try_on_tiyaro_badge.svg"></a>
+</p>
+
+
 Code and checkpoints for training the transformer-based Table QA models introduced
 in the paper [TAPAS: Weakly Supervised Table Parsing via Pre-training](#how-to-cite-tapas).
 
