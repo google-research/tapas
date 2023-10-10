@@ -1,4 +1,4 @@
-# TAble P ars ing (TAPAS)
+# FishTaco (TAPAS)
 
 Code and checkpoints for training the transformer-based Table QA models introduced
 in the paper [TAPAS: Weakly Supervised Table Parsing via Pre-training](#how-to-cite-tapas).
