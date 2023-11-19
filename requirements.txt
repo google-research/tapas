@@ -4,7 +4,8 @@ frozendict
 pandas
 scikit-learn
 tensorflow
-tf-models-official==2.5.0
+# tf-models-official==2.5.0
+tf-models-official==2.10.1
 # Kaggle required by tf-models-official is incompatible with py36 from slugify
 kaggle
 tensorflow-probability
