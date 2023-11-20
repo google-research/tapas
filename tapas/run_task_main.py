@@ -40,7 +40,7 @@ from tapas.utils import tasks
 from tapas.utils import tf_example_utils
 import tensorflow.compat.v1 as tf
 from tensorflow.compat.v1 import estimator as tf_estimator
-
+from tapas.utils import attention_utils
 
 tf.disable_v2_behavior()
 
@@ -144,6 +144,32 @@ flags.DEFINE_boolean(
 
 flags.DEFINE_string('table_pruning_config_file', None,
                     'Table pruning config file.')
+
+flags.DEFINE_enum(
+    "restrict_attention_mode",
+    "full",
+    [
+        "full",
+        "same_colum_or_row",
+        "headwise_same_colum_or_row",
+        "headwise_efficient",
+        "table_attention"
+    ],
+    "Options to restrict attention if tokens are in the same row/column.")
+
+flags.DEFINE_bool(
+    "attention_bias_use_relative_scalar_only", True,
+    "Whether to use only relative scalar (no embedding) for attention bias in"
+    "TableFormer. Takes effect only if `restrict_attention_mode` is"
+    "\"table_attention\".")
+
+flags.DEFINE_integer(
+    "attention_bias_disabled", 0,
+    "Attention bias that should be disabled (for ablation studies) in"
+    "TableFormer. Each number maps to a specific relationship id. Mapping can"
+    "be found in tapas/utils/tableformer_utils.py. Takes effect only if"
+    "`restrict_attention_mode` is \"table_attention\".")
+
 
 _MAX_TABLE_ID = 512
 _MAX_PREDICTIONS_PER_SEQ = 20
@@ -469,7 +495,13 @@ def _train_and_predict(
       disable_position_embeddings=False,
       reset_output_cls=FLAGS.reset_output_cls,
       reset_position_index_per_cell=FLAGS.reset_position_index_per_cell,
-      table_pruning_config_file=FLAGS.table_pruning_config_file)
+      table_pruning_config_file=FLAGS.table_pruning_config_file,
+      restrict_attention_mode=(attention_utils.RestrictAttentionMode(
+          FLAGS.restrict_attention_mode)),
+      attention_bias_use_relative_scalar_only=
+        FLAGS.attention_bias_use_relative_scalar_only,
+      attention_bias_disabled=FLAGS.attention_bias_disabled,
+      )
 
   model_fn = tapas_classifier_model.model_fn_builder(tapas_config)
 
