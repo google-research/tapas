@@ -31,6 +31,9 @@ from tapas.utils import attention_utils
 from tapas.utils import experiment_utils  # pylint: disable=unused-import
 import tensorflow.compat.v1 as tf
 from tensorflow.compat.v1 import estimator as tf_estimator
+
+tf.disable_v2_behavior()
+
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string("data_format", "tfrecord", "The input data format.")
